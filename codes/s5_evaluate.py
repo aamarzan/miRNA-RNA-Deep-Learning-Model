@@ -1,4 +1,4 @@
-# s5_evaluate.py (Fully Config-Driven, Supreme Model Compatible)
+# s5_evaluate.py (Final Version with Publication-Quality Plots)
 import os
 import json
 import datetime
@@ -10,10 +10,8 @@ from scipy.stats import pearsonr
 import matplotlib.pyplot as plt
 import seaborn as sns
 
-# <<< CHANGE: Import our custom loss function to load the model correctly >>>
 from s3_build_model import create_weighted_mse
 
-# --- Configuration Loader ---
 def load_config(config_path=None):
     if config_path is None:
         script_dir = os.path.dirname(os.path.realpath(__file__))
@@ -27,25 +25,23 @@ def load_config(config_path=None):
         print(f"FATAL: Configuration file not found at '{config_path}'.")
         exit()
 
-# <<< CHANGE: New function to dynamically load all available test data >>>
 def load_test_data(data_path):
     """Dynamically finds and loads all X_test_*.npy files."""
     X_test = {}
     print(f"  - Searching for test data in: {data_path}")
-    for f in os.listdir(data_path):
-        if f.startswith('X_test_') and f.endswith('.npy'):
-            key = f.replace('X_test_', '').replace('.npy', '')
-            print(f"    - Loading: {f}")
-            X_test[key] = np.load(os.path.join(data_path, f), mmap_mode='r')
+    all_files = os.listdir(data_path)
+    test_files = sorted([f for f in all_files if f.startswith('X_test_') and f.endswith('.npy')])
+    for f in test_files:
+        key = f.replace('X_test_', '').replace('.npy', '')
+        print(f"    - Loading: {f}")
+        X_test[key] = np.load(os.path.join(data_path, f), mmap_mode='r')
     
     y_test = np.load(os.path.join(data_path, 'y_test.npy'), mmap_mode='r')
     return X_test, y_test
 
-# --- Main Analysis Function ---
 def analyze_model_performance():
     print("--- Starting Model Evaluation and Visualization ---")
     
-    # --- 1. Load Config, Data, Model, and History ---
     config = load_config()
     eval_params = config['evaluation_parameters']
     train_params = config['training_parameters']
@@ -54,7 +50,6 @@ def analyze_model_performance():
     data_path = os.path.join(project_root, config['data_folders']['main_dataset_folder'], config['data_folders']['processed_for_dl_subfolder'])
     model_dir = os.path.join(project_root, config['output_folders']['main_models_folder'])
     
-    # Create a unique, timestamped folder for this evaluation run's outputs
     timestamp = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
     plots_dir = os.path.join(model_dir, f"{eval_params['output_folder_prefix']}_{timestamp}")
     os.makedirs(plots_dir, exist_ok=True)
@@ -63,7 +58,6 @@ def analyze_model_performance():
     try:
         X_test, y_test = load_test_data(data_path)
         
-        # Handle custom loss function for model loading
         custom_objects = {}
         if train_params['advanced_training']['use_custom_loss']:
             loss_instance = create_weighted_mse(train_params['advanced_training']['custom_loss_pos_weight'])
@@ -77,10 +71,9 @@ def analyze_model_performance():
             
         print("  - All files loaded successfully.")
     except (FileNotFoundError, IOError) as e:
-        print(f"  - FATAL ERROR loading files: {e}. Ensure model training is complete and filenames in config.json are correct.")
+        print(f"  - FATAL ERROR loading files: {e}.")
         return
 
-    # --- 2. Make Predictions and Calculate Metrics ---
     print("\nStep 2: Evaluating model performance on the test set...")
     y_pred = model.predict(X_test, batch_size=eval_params.get('prediction_batch_size', 1024), verbose=1).ravel()
 
@@ -100,38 +93,52 @@ def analyze_model_performance():
     metrics_df.to_csv(os.path.join(plots_dir, 'performance_metrics.csv'), index=False, float_format='%.4f')
     print(f"\n  - Metrics table saved to: '{plots_dir}'")
 
-    # --- 3. Generate Publication-Quality Plots ---
-    print("\nStep 3: Generating and saving publication-quality plots...")
+    print("\nStep 3: Generating publication-quality plots...")
     plt.style.use('seaborn-v0_8-whitegrid')
+    
+    # Plot 1: Enhanced Correlation Scatter Plot with Density
+    plt.figure(figsize=(10, 10))
+    sample_indices = np.random.choice(len(y_test), size=min(10000, len(y_test)), replace=False)
+    g = sns.jointplot(x=y_test[sample_indices], y=y_pred[sample_indices], kind='hex', cmap='viridis', gridsize=50)
+    g.ax_joint.plot([0, 1], [0, 1], color='red', linestyle='--', linewidth=2, label='Perfect Prediction')
+    g.ax_joint.set_xlabel('Actual Affinity Score', fontsize=12)
+    g.ax_joint.set_ylabel('Predicted Affinity Score', fontsize=12)
+    plt.suptitle(f'Predicted vs. Actual Affinity\n$R^2$ Score: {r2:.3f} | Pearson r: {p_corr:.3f}', y=1.02, fontsize=16, fontweight='bold')
+    g.ax_joint.legend()
+    plt.tight_layout()
+    plt.savefig(os.path.join(plots_dir, 'prediction_correlation_density.png'), dpi=300, bbox_inches='tight')
+    plt.close()
+    print("  - Saved enhanced correlation plot.")
 
-    # Plot 1: Training History
-    plt.figure(figsize=(10, 6))
-    plt.plot(history['loss'], label='Training Loss')
-    plt.plot(history['val_loss'], label='Validation Loss', linestyle='--')
-    plt.title('Model Loss Over Epochs')
-    plt.xlabel('Epoch')
-    plt.ylabel('Loss (Log Scale)')
-    plt.legend()
+    # Plot 2: Enhanced Residuals Plot
+    residuals = y_test[sample_indices] - y_pred[sample_indices]
+    plt.figure(figsize=(12, 7))
+    sns.scatterplot(x=y_pred[sample_indices], y=residuals, alpha=0.5, color='royalblue')
+    plt.axhline(y=0, color='red', linestyle='--', lw=2)
+    plt.title('Residuals (Actual - Predicted) vs. Predicted Value', fontsize=16, fontweight='bold')
+    plt.xlabel('Predicted Affinity Score', fontsize=12)
+    plt.ylabel('Residual (Error)', fontsize=12)
+    plt.tight_layout()
+    plt.savefig(os.path.join(plots_dir, 'residuals_plot.png'), dpi=300)
+    plt.close()
+    print("  - Saved residuals plot.")
+
+    # Plot 3: Training History
+    plt.figure(figsize=(12, 7))
+    plt.plot(history['loss'], label='Training Loss', color='darkblue', lw=2)
+    plt.plot(history['val_loss'], label='Validation Loss', color='darkorange', linestyle='--', lw=2)
+    plt.title('Model Loss (Mean Squared Error) Over Epochs', fontsize=16, fontweight='bold')
+    plt.xlabel('Epoch', fontsize=12)
+    plt.ylabel('Loss (Log Scale)', fontsize=12)
+    plt.legend(fontsize=12)
     plt.yscale('log')
+    plt.tight_layout()
     plt.savefig(os.path.join(plots_dir, 'training_history.png'), dpi=300)
     plt.close()
+    print("  - Saved training history plot.")
 
-    # Plot 2: Prediction Correlation Scatter Plot
-    plt.figure(figsize=(8, 8))
-    sample_indices = np.random.choice(len(y_test), size=min(5000, len(y_test)), replace=False)
-    sns.regplot(x=y_test[sample_indices], y=y_pred[sample_indices], scatter_kws={'alpha':0.3})
-    plt.plot([0, 1], [0, 1], color='red', linestyle='--', label='Perfect Prediction')
-    plt.title(f'Predicted vs. Actual Affinity\n$R^2$ Score: {r2:.3f} | Pearson r: {p_corr:.3f}')
-    plt.xlabel('Actual Affinity Score')
-    plt.ylabel('Predicted Affinity Score')
-    plt.xlim(0, max(1.0, np.max(y_test), np.max(y_pred)) * 1.05)
-    plt.ylim(0, max(1.0, np.max(y_test), np.max(y_pred)) * 1.05)
-    plt.gca().set_aspect('equal', adjustable='box')
-    plt.legend()
-    plt.savefig(os.path.join(plots_dir, 'prediction_correlation.png'), dpi=300)
-    plt.close()
-    
-    print(f"  - All plots have been saved to the folder: '{plots_dir}'")
+    print(f"\n  - All plots have been saved to the folder: '{plots_dir}'")
+    print("\n--- Evaluation and Visualization Complete ---")
 
 if __name__ == "__main__":
     analyze_model_performance()

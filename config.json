@@ -51,7 +51,7 @@
         "_comment": "Parameters for Stage 3 (s3_build_model.py).",
         "task_type": "regression",
         "batch_size": 1024,
-        "epochs": 100,
+        "epochs": 40,
         "learning_rate": 0.0005,
         "dropout_rate": 0.4,
         "test_split_ratio": 0.2,
@@ -59,8 +59,8 @@
         "numerical_features": ["gc_content", "dg", "conservation"],
         "sequence_padding": {
             "_comment": "These are the generic keys the scripts will use.",
-            "max_primary_len": 80,
-            "max_target_len": 150,
+            "max_primary_len": 150,
+            "max_target_len": 350,
             "max_competitor_len": 200
         },
         "model_architecture": {
@@ -96,6 +96,11 @@
         "use_prediction_region_slice": false,
         "prediction_target_region_slice": [ 90, 150 ]
     },
+    "structure_files": {
+        "_comment": "Update the file name according to the 1D and 3D model location).",
+        "ID_from_target_rre.fasta": "E:/1. miRNA-RNA-Deep-Learning-Model/prediction/target_to_predict/target_rre.pdb"
+    },
+
     "incremental_training": {
         "_comment": "Parameters for Stage 3b (s3b_incremental_training.py).",
         "new_data_subfolder": "processed_for_dl",
