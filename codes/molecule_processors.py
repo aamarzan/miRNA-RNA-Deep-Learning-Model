@@ -4,6 +4,7 @@ import re
 import json
 import numpy as np
 import subprocess
+import random
 
 # --- Configuration Loader ---
 def load_config(config_path=None):
@@ -97,6 +98,54 @@ def predict_graph_structure(molecule_id, sequence):
         
     return None
 
+# <<< NEW: Function to load and parse a codon usage table >>>
+def load_codon_table(table_path):
+    """
+    Loads a codon usage table from a text file into a dictionary.
+    Format expected: UUU F 17.6 (1059)
+    """
+    codon_map = {}
+    try:
+        with open(table_path, 'r') as f:
+            for line in f:
+                parts = re.findall(r'([A-Z]{3})\s+([A-Z*])\s+([\d\.]+)', line)
+                if parts:
+                    codon, aa, freq = parts[0]
+                    if aa not in codon_map:
+                        codon_map[aa] = []
+                    codon_map[aa].append({'codon': codon.replace('T', 'U'), 'freq': float(freq)})
+    except FileNotFoundError:
+        print(f"  - WARNING: Codon usage table not found at {table_path}. Reverse translation will fail.")
+        return None
+    
+    # Normalize frequencies for probabilistic selection
+    for aa, codons in codon_map.items():
+        total_freq = sum(c['freq'] for c in codons)
+        for c in codons:
+            c['prob'] = c['freq'] / total_freq
+            
+    return codon_map
+
+# <<< NEW: Core function to perform reverse translation >>>
+def reverse_translate(aa_sequence, codon_map):
+    """
+    Converts an amino acid sequence to a probable nucleotide sequence
+    based on codon usage frequencies.
+    """
+    if not codon_map:
+        return ""
+        
+    nt_sequence = []
+    for aa in aa_sequence.upper():
+        if aa in codon_map:
+            codons = [c['codon'] for c in codon_map[aa]]
+            probabilities = [c['prob'] for c in codon_map[aa]]
+            # Choose a codon based on its usage probability
+            chosen_codon = random.choices(codons, weights=probabilities, k=1)[0]
+            nt_sequence.append(chosen_codon)
+    
+    return "".join(nt_sequence)
+
 # --- Universal Molecule Processor ---
 def process_rna_universal(args):
     """
@@ -131,7 +180,32 @@ def process_rna_universal(args):
         'adjacency_matrix': serialized_adjacency
     }
 
+# <<< NEW: Universal processor for protein sequences >>>
+def process_protein_universal(args):
+    """
+    Universal processor for protein-type molecules.
+    1. Reverse-translates the AA sequence to a probable NT sequence.
+    2. Processes the NT sequence using the existing RNA pipeline.
+    """
+    (molecule_id, sequence), params, role = args
+    config = load_config()
+    
+    # --- Step 1: Reverse Translate ---
+    codon_table_path = os.path.join(config['project_root'], 'dataset', 'codon_tables', 'human_codon_usage.txt')
+    codon_map = load_codon_table(codon_table_path)
+    nt_sequence = reverse_translate(sequence, codon_map)
+    
+    if not nt_sequence:
+        return (molecule_id, "reject_reverse_translation")
+        
+    # --- Step 2: Process the new NT sequence using our RNA processor ---
+    # This is powerful code reuse. We are passing the generated NT sequence
+    # to the same robust function we use for all other RNA.
+    rna_args = ((molecule_id, nt_sequence), params, role)
+    return process_rna_universal(rna_args)
+
 PROCESSOR_MAP = {
     "miRNA": process_rna_universal,
     "RNA": process_rna_universal,
+    "protein": process_protein_universal,
 }

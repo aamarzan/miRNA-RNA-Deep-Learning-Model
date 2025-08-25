@@ -17,13 +17,13 @@
         "_comment": "Define the molecule types for this experiment.",
         "primary_molecule": "miRNA",
         "target_molecule": "RNA",
-        "competitor_molecule": "RNA"
+        "competitor_molecule": "protein"
     },
     "data_sources": {
         "_comment": "Map experiment roles to actual folder names.",
         "mirna": {"folder": "miRNA_dataset", "type": "fasta"},
         "rna_target": {"folder": "target", "type": "fasta"},
-        "rna_competitor": {"folder": "competitor", "type": "fasta"},
+        "protein_competitor": {"folder": "competitor", "type": "fasta"},
         "affinity": {"folder": "affinity_score", "type": "score", "id_col": "mirna", "score_col": "interaction_score"},
         "conservation": {"folder": "conservation_score", "type": "score", "id_col": "mir family", "score_col": "pct"}
     },

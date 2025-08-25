@@ -4,7 +4,7 @@ import json
 import numpy as np
 import tensorflow as tf
 from tensorflow.keras.layers import (Input, Conv1D, Dense, Dropout, BatchNormalization,
-                                     concatenate, Bidirectional, LSTM,
+                                     concatenate, Bidirectional, LSTM, Layer,
                                      MultiHeadAttention, GlobalAveragePooling1D, LayerNormalization)
 from tensorflow.keras.models import Model
 from tensorflow.keras.optimizers import Adam
@@ -79,6 +79,33 @@ class DataGenerator(tf.keras.utils.Sequence):
         else:
             return X, y
 
+# <<< NEW: Custom Layer for Positional Encoding >>>
+class PositionalEncoding(Layer):
+    def __init__(self, max_len, embed_dim):
+        super(PositionalEncoding, self).__init__()
+        self.pos_encoding = self.positional_encoding(max_len, embed_dim)
+
+    def get_config(self):
+        config = super().get_config()
+        return config
+
+    def positional_encoding(self, max_len, embed_dim):
+        pos = np.arange(max_len)[:, np.newaxis]
+        i = np.arange(embed_dim)[np.newaxis, :]
+        angle_rates = 1 / np.power(10000, (2 * (i // 2)) / np.float32(embed_dim))
+        angle_rads = pos * angle_rates
+        # apply sin to even indices in the array; 2i
+        angle_rads[:, 0::2] = np.sin(angle_rads[:, 0::2])
+        # apply cos to odd indices in the array; 2i+1
+        angle_rads[:, 1::2] = np.cos(angle_rads[:, 1::2])
+        pos_encoding = angle_rads[np.newaxis, ...]
+        return tf.cast(pos_encoding, dtype=tf.float32)
+
+    def call(self, x):
+        # x shape is (batch, seq_len, features)
+        seq_len = tf.shape(x)[1]
+        return x + self.pos_encoding[:, :seq_len, :]
+
 # --- Custom Weighted Loss Function (Corrected for new TensorFlow/Keras version) ---
 def create_weighted_mse(pos_weight=5.0, threshold=0.1):
     def weighted_mse(y_true, y_pred):
@@ -94,8 +121,13 @@ def create_weighted_mse(pos_weight=5.0, threshold=0.1):
 def build_supreme_model(input_shapes, params):
     input_layers = {key: Input(shape=shape, name=key) for key, shape in input_shapes.items()}
     
+    # <<< CHANGE: Positional Encoding is now applied to sequence inputs >>>
     def create_seq_processor(input_tensor, p):
-        x = Conv1D(filters=p['cnn_filters'], kernel_size=p['cnn_kernel_size'], padding='same', activation='relu')(input_tensor)
+        # The PositionalEncoding layer gives the model information about the position of each nucleotide
+        max_len, features = input_tensor.shape[1], input_tensor.shape[2]
+        pos_encoded_input = PositionalEncoding(max_len, features)(input_tensor)
+        
+        x = Conv1D(filters=p['cnn_filters'], kernel_size=p['cnn_kernel_size'], padding='same', activation='relu')(pos_encoded_input)
         x = BatchNormalization()(x)
         x = Bidirectional(LSTM(p['lstm_units'], return_sequences=True))(x)
         return x
