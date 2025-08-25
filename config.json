@@ -97,8 +97,8 @@
         "prediction_target_region_slice": [ 90, 150 ]
     },
     "structure_files": {
-        "_comment": "Update the file name according to the 1D and 3D model location).",
-        "ID_from_target_rre.fasta": "E:/1. miRNA-RNA-Deep-Learning-Model/prediction/target_to_predict/target_rre.pdb"
+        "ID_from_target_fasta": "E:/1. miRNA-RNA-Deep-Learning-Model/prediction/target_to_predict/test.pdb",
+        "ID_from_competitor_fasta": "E:/1. miRNA-RNA-Deep-Learning-Model/prediction/competitor_to_compare/test.pdb"
     },
 
     "incremental_training": {
