@@ -107,21 +107,33 @@ def prepare_dataset(config):
         elif source_info['type'] == 'score':
             data_sources[name] = load_scores(path, source_info['id_col'], source_info['score_col'], name.capitalize())
     
-    # --- 3. Process the Primary Molecule ---
-    print("\nStep 2: Pre-processing the primary molecule...")
-    primary_molecule_type = config['experiment_setup']['primary_molecule']
-    primary_molecules_raw = data_sources[primary_molecule_type.lower()]
-    processor_func = PROCESSOR_MAP.get(primary_molecule_type)
+    # --- 3. Process ALL Molecule Types (Primary, Target, and Competitor) ---
+    print("\nStep 2: Pre-processing all molecule types...")
     
-    processing_args = [(item, PARAMS) for item in primary_molecules_raw.items()]
-    with Pool(processes=cpu_count()) as pool:
-        results = pool.map(processor_func, processing_args)
+    processed_data = {}
+    molecule_roles = config['experiment_setup']
 
-    processed_molecules, reject_log = [], {"length": 0, "gc": 0, "structure": 0}
-    for result in results:
-        if isinstance(result, dict): processed_molecules.append(result)
-        else: _, reason = result; reject_log[reason.split('_')[1]] += 1
-    print(f"  - {len(processed_molecules)} primary molecules passed filters. Rejects: {reject_log}")
+    for role, molecule_type in molecule_roles.items():
+        role_key = f"{molecule_type.lower()}_{role.replace('_molecule', '')}" if role != 'primary_molecule' else molecule_type.lower()
+        
+        # Check if this source exists (e.g., protein_competitor vs rna_competitor)
+        if role_key not in data_sources:
+             role_key = f"rna_{role.replace('_molecule', '')}" # Fallback for simplicity
+             if role_key not in data_sources: continue
+
+        print(f"  - Processing {role} ({molecule_type})...")
+        raw_molecules = data_sources[role_key]
+        processor_func = PROCESSOR_MAP.get(molecule_type)
+        if not processor_func: continue
+
+        # Use multiprocessing to process all molecules for this role
+        processing_args = [((mol_id, seq), PARAMS, role_key) for mol_id, seq in raw_molecules.items()]
+        with Pool(processes=cpu_count()) as pool:
+            results = pool.map(processor_func, processing_args)
+        
+        # Filter out rejected molecules
+        processed_data[role] = [res for res in results if isinstance(res, dict)]
+        print(f"    - {len(processed_data[role])} molecules passed filters.")
     
     # --- 4. Augment with Affinity/Conservation Scores ---
     for molecule_data in processed_molecules:
@@ -131,39 +143,19 @@ def prepare_dataset(config):
         mirna_family = match.group(0) if match else molecule_id.lower()
         molecule_data['conservation'] = data_sources.get('conservation', {}).get(mirna_family, 0.0)
 
-    # --- 5. Prepare Target and Competitor Molecules ---
-    target_type = config['experiment_setup']['target_molecule']
-    competitor_type = config['experiment_setup']['competitor_molecule']
-    all_targets_full = data_sources[f"{target_type.lower()}_target"]
-    all_competitors = data_sources[f"{competitor_type.lower()}_competitor"]
-
-    all_targets_processed = {}
-    if PARAMS['focus_on_target_region']:
-        region_name, (start, end) = PARAMS['target_region_name'], PARAMS['target_region_slice']
-        for target_id, full_seq in all_targets_full.items():
-            if len(full_seq) >= end:
-                all_targets_processed[f"{target_id}_{region_name}"] = full_seq[start:end]
-    else:
-        all_targets_processed = all_targets_full
-
-    if not all_targets_processed:
-        print("\nCRITICAL ERROR: No target sequences remained after filtering.")
-        return
-
-    null_competitor = ('NO_COMPETITOR', '')
-    all_competitors_augmented = list(all_competitors.items()) + [null_competitor]
-    
-    # --- 6. Generate and Stream Final Dataset to Parquet ---
+    # --- 5. Generate and Stream Final Dataset ---
     print("\nStep 3: Generating and streaming combinations to Parquet...")
-    output_filename = f"Prepared_Dataset_{int(time.time())}.parquet"
-    output_path = os.path.join(PREPARED_DATASET_DIR, output_filename)
-    if os.path.exists(output_path): os.remove(output_path)
     
-    import pyarrow as pa
-    import pyarrow.parquet as pq
-
-    batch, total_rows, parquet_writer = [], 0, None
-    combinations = product(processed_molecules, all_targets_processed.items(), all_competitors_augmented)
+    # Use the lists of PROCESSED molecules now
+    primary_molecules = processed_data['primary_molecule']
+    target_molecules = processed_data['target_molecule']
+    competitor_molecules = processed_data.get('competitor_molecule', [])
+    
+    # Add a "Null" competitor
+    null_competitor = {'id': 'NO_COMPETITOR', 'sequence': ''}
+    competitors_augmented = competitor_molecules + [null_competitor]
+    
+    combinations = product(primary_molecules, target_molecules, competitors_augmented)
 
     for primary_data, (target_id, target_seq), (competitor_id, competitor_seq) in combinations:
         row = {

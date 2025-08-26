@@ -27,12 +27,10 @@ def calculate_gc_content(sequence):
 def predict_rna_structure_1d(sequence):
     """Calculates 1D structure vector and dG for an RNA sequence using RNAfold."""
     config = load_config()
-    # <<< CHANGE: Check config for a specific tool path >>>
-    rnafold_cmd = config.get('tool_paths', {}).get('rnafold', 'RNAfold')
-    if not rnafold_cmd: rnafold_cmd = 'RNAfold' # Fallback if path is empty
-    
+    # Correctly uses the configured tool path, falling back to 'RNAfold' if not specified
+    rnafold_cmd = config.get('tool_paths', {}).get('rnafold') or 'RNAfold'
     try:
-        result = subprocess.run(['RNAfold'], input=sequence, text=True, capture_output=True, check=True, encoding='utf-8', timeout=30)
+        result = subprocess.run([rnafold_cmd], input=sequence, text=True, capture_output=True, check=True, encoding='utf-8', timeout=60)
         output_lines = result.stdout.strip().split('\n')
         if len(output_lines) >= 2:
             struct_line = output_lines[1]
@@ -41,7 +39,8 @@ def predict_rna_structure_1d(sequence):
             dg = float(match.group(0)) if match else 0.0
             encoded_structure = [({'.': 0, '(': 1, ')': -1}).get(c, 0) for c in structure]
             return {'structure_vector': json.dumps(encoded_structure), 'dg': dg}
-    except Exception:
+    except Exception as e:
+        print(f"  - WARNING: RNAfold failed for sequence. Error: {e}")
         pass
     return None
 
@@ -71,20 +70,15 @@ def predict_graph_structure(molecule_id, sequence):
     2. Falls back to RNAfold prediction if PDB processing is disabled or fails.
     """
     config = load_config()
-    # <<< CHANGE: Check config for a specific tool path >>>
-    dssr_cmd = config.get('tool_paths', {}).get('dssr', 'x3dna-dssr')
-    if not dssr_cmd: dssr_cmd = 'x3dna-dssr'
-    
-    # <<< CHANGE: Added a check for the new "development switch" >>>
-    # Only try to process PDB files if the flag is set to true in config.json
+    # Correctly uses the configured tool path, falling back to 'x3dna-dssr' if not specified
+    dssr_cmd = config.get('tool_paths', {}).get('dssr') or 'x3dna-dssr'
     use_pdb = config.get('processing_parameters', {}).get('enable_pdb_processing', False)
 
     if use_pdb and 'structure_files' in config and molecule_id in config['structure_files']:
         pdb_path = config['structure_files'][molecule_id]
         if os.path.exists(pdb_path):
             try:
-                # This block will only run if DSSR is installed AND the switch is on.
-                result = subprocess.run(['x3dna-dssr', f'--input={pdb_path}'],
+                result = subprocess.run([dssr_cmd, f'--input={pdb_path}'],
                                         capture_output=True, text=True, check=True, timeout=60)
                 match = re.search(r'secondary structure in dot-bracket notation\s*\n\s*(\S+)', result.stdout)
                 if match:
@@ -94,9 +88,10 @@ def predict_graph_structure(molecule_id, sequence):
                 print(f"  - WARNING: DSSR failed for {molecule_id}. Falling back to RNAfold. Error: {e}")
                 pass 
 
-    # Fallback to RNAfold prediction (this will be the default for the next 2 days)
+    # Fallback to RNAfold prediction
     try:
-        result = subprocess.run(['RNAfold'], input=sequence, text=True, capture_output=True, check=True, encoding='utf-8', timeout=30)
+        rnafold_cmd = config.get('tool_paths', {}).get('rnafold') or 'RNAfold'
+        result = subprocess.run([rnafold_cmd], input=sequence, text=True, capture_output=True, check=True, encoding='utf-8', timeout=30)
         output_lines = result.stdout.strip().split('\n')
         if len(output_lines) >= 2:
             structure = output_lines[1].split(' ')[0]
@@ -188,6 +183,27 @@ def process_molecule_universal(args):
             return (molecule_id, "reject_reverse_translation")
     else: # It's an RNA sequence
         nt_sequence = sequence.replace('T', 'U')
+
+    # --- Step 2: Process the nucleotide sequence to generate all features ---
+    gc = calculate_gc_content(nt_sequence)
+    structural_features_1d = predict_rna_structure_1d(nt_sequence)
+    if structural_features_1d is None:
+        return (molecule_id, "reject_structure_1d")
+
+    adjacency_matrix = predict_graph_structure(molecule_id, nt_sequence)
+    if adjacency_matrix is None:
+        adjacency_matrix = np.zeros((len(nt_sequence), len(nt_sequence)), dtype=int)
+        
+    serialized_adjacency = json.dumps(adjacency_matrix.tolist())
+
+    return {
+        'id': molecule_id,
+        'original_sequence': sequence,
+        'sequence': nt_sequence,
+        'gc_content': gc,
+        **structural_features_1d,
+        'adjacency_matrix': serialized_adjacency
+    }
 
     # --- GNN Feature Generation ---
     adjacency_matrix = predict_graph_structure(molecule_id, sequence)

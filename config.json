@@ -2,13 +2,11 @@
     "_comment_project": "This file is the central control panel for the entire data preparation pipeline.",
     "project_root": "E:/1. miRNA-RNA-Deep-Learning-Model",
     "data_folders": {
-        "_comment": "Names of your data subfolders.",
         "main_dataset_folder": "dataset",
         "prepared_subfolder": "prepared_dataset",
         "processed_for_dl_subfolder": "processed_for_dl"
     },
     "output_folders": {
-        "_comment": "Names for generated output folders.",
         "main_models_folder": "models",
         "prediction_subfolder": "prediction",
         "logs_subfolder": "logs"
@@ -17,15 +15,13 @@
         "_comment": "Optional: Provide full paths to external tools if they are not in the system PATH.",
         "rnafold": "",
         "dssr": "E:/1. miRNA-RNA-Deep-Learning-Model/dataset/dssr/dssr-basic-windows-v2.6.0/x3dna-dssr.exe"
-    },    
+    },
     "experiment_setup": {
-        "_comment": "Define the molecule types for this experiment.",
         "primary_molecule": "miRNA",
         "target_molecule": "RNA",
         "competitor_molecule": "protein"
     },
     "data_sources": {
-        "_comment": "Map experiment roles to actual folder names.",
         "mirna": {"folder": "miRNA_dataset", "type": "fasta"},
         "rna_target": {"folder": "target", "type": "fasta"},
         "protein_competitor": {"folder": "competitor", "type": "fasta"},
@@ -33,29 +29,28 @@
         "conservation": {"folder": "conservation_score", "type": "score", "id_col": "mir family", "score_col": "pct"}
     },
     "processing_parameters": {
-        "_comment": "Parameters for Stage 1 (s1_prepare_dataset.py). PDB processing can be enabled if needed.",
+        "_comment": "Parameters for Stage 1 (s1_prepare_dataset.py).",
         "enable_pdb_processing": false,
         "focus_on_target_region": false,
-        "target_region_name": "StemIIB",
-        "target_region_slice": [90, 150],
+        "target_region_name": "WholeSequence",
+        "target_region_slice": [0, 10000],
         "min_mirna_len": 10,
-        "max_mirna_len": 150,
+        "max_mirna_len": 200,
         "min_gc_content": 0.20,
         "max_gc_content": 0.90
     },
     "data_processing": {
-        "_comment": "Parameters for Stage 2 (s2_prepare_dl_data.py).",
         "batch_size_parquet": 50000
     },
     "dataset_splitting": {
         "_comment": "Parameters for Stage 1b (s1b_split_dataset.py).",
-        "number_of_parts": 100,
+        "number_of_parts": 10,
         "input_filename": ""
     },
     "training_parameters": {
         "_comment": "Parameters for Stage 3 (s3_build_model.py).",
         "task_type": "regression",
-        "batch_size": 1024,
+        "batch_size": 256,
         "epochs": 40,
         "learning_rate": 0.0005,
         "dropout_rate": 0.4,
@@ -63,19 +58,19 @@
         "target_feature": "affinity",
         "numerical_features": ["gc_content", "dg", "conservation"],
         "sequence_padding": {
-            "_comment": "These are the generic keys the scripts will use.",
-            "max_primary_len": 150,
-            "max_target_len": 350,
-            "max_competitor_len": 200
+            "_comment": "Settings for a 'Model M' (Medium) foundation model.",
+            "max_primary_len": 200,
+            "max_target_len": 10000,
+            "max_competitor_len": 10000
         },
         "model_architecture": {
-            "cnn_filters": 64,
+            "_comment": "Smaller architecture for faster training on CPU.",
+            "cnn_filters": 32,
             "cnn_kernel_size": 7,
-            "lstm_units": 32,
-            "attention_heads": 4
+            "lstm_units": 16,
+            "attention_heads": 2
         },
         "gnn_architecture": {
-            "_comment": "Hyperparameters for the GNN branches.",
             "gnn_units": 32
         },
         "advanced_training": {
@@ -83,42 +78,38 @@
             "sample_weight_alpha": 15.0,
             "use_custom_loss": true,
             "custom_loss_pos_weight": 10.0,
-            "early_stopping_patience": 5
+            "early_stopping_patience": 10
         }
     },
     "prediction_parameters": {
         "_comment": "Parameters for Stage 4 (s4_predict.py).",
         "model_to_use": "best_supreme_model.keras",
         "output_filename": "ranked_predictions.parquet",
-
         "input_folders": {
-            "_comment": "Place FASTA files in these subfolders inside the 'prediction' directory.",
             "primary": "primary_to_rank",
             "target": "target_to_predict",
             "competitor": "competitor_to_compare"
         },
-        
         "use_prediction_region_slice": true,
-        "prediction_target_region_slice": [ 90, 150 ]
+        "prediction_target_region_slice": [90, 150]
     },
     "structure_files": {
         "ID_from_target_fasta": "E:/1. miRNA-RNA-Deep-Learning-Model/prediction/target_to_predict/test.pdb",
         "ID_from_competitor_fasta": "E:/1. miRNA-RNA-Deep-Learning-Model/prediction/competitor_to_compare/test.pdb"
     },
-
     "incremental_training": {
         "_comment": "Parameters for Stage 3b (s3b_incremental_training.py).",
-        "new_data_subfolder": "processed_for_dl",
+        "new_data_subfolder": "processed_for_dl_zika",
         "existing_model_name": "best_supreme_model.keras",
-        "new_model_name": "best_supreme_model_2.keras",
+        "new_model_name": "best_supreme_model_zika_tuned.keras",
         "fine_tune_learning_rate": 5e-5,
         "fine_tune_epochs": 30
     },
     "evaluation_parameters": {
-    "_comment": "Parameters for Stage 5 (s5_evaluate.py).",
-    "model_to_evaluate": "best_supreme_model.keras",
-    "history_to_load": "history_supreme_model.json",
-    "prediction_batch_size": 4096,
-    "output_folder_prefix": "evaluation_plots"
+        "_comment": "Parameters for Stage 5 (s5_evaluate.py).",
+        "model_to_evaluate": "best_supreme_model.keras",
+        "history_to_load": "history_supreme_model.json",
+        "prediction_batch_size": 1024,
+        "output_folder_prefix": "evaluation_plots"
     }
 }
