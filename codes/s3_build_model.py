@@ -79,6 +79,28 @@ class DataGenerator(tf.keras.utils.Sequence):
         else:
             return X, y
 
+# <<< NEW: Custom callback to save history after each epoch >>>
+class HistoryLogger(tf.keras.callbacks.Callback):
+    def __init__(self, filepath):
+        super(HistoryLogger, self).__init__()
+        self.filepath = filepath
+        # Initialize the history dictionary
+        self.history = {}
+
+    def on_epoch_end(self, epoch, logs=None):
+        logs = logs or {}
+        # Append the logs to our history dictionary
+        for k, v in logs.items():
+            self.history.setdefault(k, []).append(v)
+        
+        # Save the updated history to the JSON file
+        # Convert numpy values to native Python types for JSON serialization
+        history_for_json = {key: [float(val) for val in values] for key, values in self.history.items()}
+        with open(self.filepath, 'w') as f:
+            json.dump(history_for_json, f)
+        
+        print(f" - History updated and saved to {self.filepath}")
+
 # <<< NEW: Custom Layer for Positional Encoding >>>
 class PositionalEncoding(Layer):
     def __init__(self, max_len, embed_dim):
@@ -214,9 +236,10 @@ if __name__ == "__main__":
     
     callbacks = [
         ModelCheckpoint(filepath=model_filepath, save_best_only=True, monitor='val_loss', mode='min', verbose=1),
-        EarlyStopping(monitor='val_loss', patience=adv_params.get('early_stopping_patience', 10), mode='min', restore_best_weights=True),
+        EarlyStopping(monitor='val_loss', patience=train_params['advanced_training'].get('early_stopping_patience', 10), mode='min', restore_best_weights=True),
         ReduceLROnPlateau(monitor='val_loss', factor=0.2, patience=5, min_lr=1e-6),
-        TensorBoard(log_dir=log_dir)
+        TensorBoard(log_dir=log_dir),
+        HistoryLogger(filepath=history_filepath)
     ]
 
     print("\nStep 5: Starting model training...")
