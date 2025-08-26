@@ -13,6 +13,11 @@
         "prediction_subfolder": "prediction",
         "logs_subfolder": "logs"
     },
+    "tool_paths": {
+        "_comment": "Optional: Provide full paths to external tools if they are not in the system PATH.",
+        "rnafold": "",
+        "dssr": "E:/1. miRNA-RNA-Deep-Learning-Model/dataset/dssr/dssr-basic-windows-v2.6.0/x3dna-dssr.exe"
+    },    
     "experiment_setup": {
         "_comment": "Define the molecule types for this experiment.",
         "primary_molecule": "miRNA",
@@ -30,7 +35,7 @@
     "processing_parameters": {
         "_comment": "Parameters for Stage 1 (s1_prepare_dataset.py). PDB processing can be enabled if needed.",
         "enable_pdb_processing": false,
-        "focus_on_target_region": true,
+        "focus_on_target_region": false,
         "target_region_name": "StemIIB",
         "target_region_slice": [90, 150],
         "min_mirna_len": 10,
@@ -93,7 +98,7 @@
             "competitor": "competitor_to_compare"
         },
         
-        "use_prediction_region_slice": false,
+        "use_prediction_region_slice": true,
         "prediction_target_region_slice": [ 90, 150 ]
     },
     "structure_files": {

@@ -26,6 +26,11 @@ def calculate_gc_content(sequence):
 
 def predict_rna_structure_1d(sequence):
     """Calculates 1D structure vector and dG for an RNA sequence using RNAfold."""
+    config = load_config()
+    # <<< CHANGE: Check config for a specific tool path >>>
+    rnafold_cmd = config.get('tool_paths', {}).get('rnafold', 'RNAfold')
+    if not rnafold_cmd: rnafold_cmd = 'RNAfold' # Fallback if path is empty
+    
     try:
         result = subprocess.run(['RNAfold'], input=sequence, text=True, capture_output=True, check=True, encoding='utf-8', timeout=30)
         output_lines = result.stdout.strip().split('\n')
@@ -66,6 +71,9 @@ def predict_graph_structure(molecule_id, sequence):
     2. Falls back to RNAfold prediction if PDB processing is disabled or fails.
     """
     config = load_config()
+    # <<< CHANGE: Check config for a specific tool path >>>
+    dssr_cmd = config.get('tool_paths', {}).get('dssr', 'x3dna-dssr')
+    if not dssr_cmd: dssr_cmd = 'x3dna-dssr'
     
     # <<< CHANGE: Added a check for the new "development switch" >>>
     # Only try to process PDB files if the flag is set to true in config.json
@@ -146,22 +154,40 @@ def reverse_translate(aa_sequence, codon_map):
     
     return "".join(nt_sequence)
 
-# --- Universal Molecule Processor ---
-def process_rna_universal(args):
+# <<< NEW: Helper function to automatically detect sequence type >>>
+def detect_sequence_type(sequence):
+    """Detects if a sequence is RNA or Protein based on its alphabet."""
+    rna_alphabet = set("ACGTUN")
+    protein_alphabet = set("LIVFWYMCAGPSTHRKQNDE")
+    
+    seq_set = set(sequence.upper())
+    
+    # If any character is exclusively in the protein alphabet, it's a protein
+    if not seq_set.issubset(rna_alphabet) and seq_set.intersection(protein_alphabet):
+        return "protein"
+    return "rna"
+
+# <<< NEW: Single, unified processor for all molecule types >>>
+def process_molecule_universal(args):
     """
-    Universal processor for any RNA-like molecule.
-    Calculates GC, 1D structure, and 2D graph structure (for GNN).
+    Unified processor that auto-detects sequence type (RNA or Protein).
+    If Protein, it reverse-translates. Then, it processes the resulting
+    nucleotide sequence to generate all features (GC, 1D/2D structure).
     """
-    # <<< FIX: Unpack all three arguments (molecule, params, and role) instead of just two >>>
     (molecule_id, sequence), params, role = args
     config = load_config()
 
-    # --- Feature Generation ---
-    gc = calculate_gc_content(sequence)
-    structural_features_1d = predict_rna_structure_1d(sequence)
+    # --- Step 1: Auto-detect and handle sequence type ---
+    seq_type = detect_sequence_type(sequence)
     
-    if structural_features_1d is None:
-        return (molecule_id, "reject_structure_1d")
+    if seq_type == "protein":
+        codon_table_path = os.path.join(config.get('project_root', '.'), 'dataset', 'codon_tables', 'human_codon_usage.txt')
+        codon_map = load_codon_table(codon_table_path)
+        nt_sequence = reverse_translate(sequence, codon_map)
+        if not nt_sequence:
+            return (molecule_id, "reject_reverse_translation")
+    else: # It's an RNA sequence
+        nt_sequence = sequence.replace('T', 'U')
 
     # --- GNN Feature Generation ---
     adjacency_matrix = predict_graph_structure(molecule_id, sequence)
@@ -180,32 +206,8 @@ def process_rna_universal(args):
         'adjacency_matrix': serialized_adjacency
     }
 
-# <<< NEW: Universal processor for protein sequences >>>
-def process_protein_universal(args):
-    """
-    Universal processor for protein-type molecules.
-    1. Reverse-translates the AA sequence to a probable NT sequence.
-    2. Processes the NT sequence using the existing RNA pipeline.
-    """
-    (molecule_id, sequence), params, role = args
-    config = load_config()
-    
-    # --- Step 1: Reverse Translate ---
-    codon_table_path = os.path.join(config['project_root'], 'dataset', 'codon_tables', 'human_codon_usage.txt')
-    codon_map = load_codon_table(codon_table_path)
-    nt_sequence = reverse_translate(sequence, codon_map)
-    
-    if not nt_sequence:
-        return (molecule_id, "reject_reverse_translation")
-        
-    # --- Step 2: Process the new NT sequence using our RNA processor ---
-    # This is powerful code reuse. We are passing the generated NT sequence
-    # to the same robust function we use for all other RNA.
-    rna_args = ((molecule_id, nt_sequence), params, role)
-    return process_rna_universal(rna_args)
-
 PROCESSOR_MAP = {
-    "miRNA": process_rna_universal,
-    "RNA": process_rna_universal,
-    "protein": process_protein_universal,
+    "miRNA": process_molecule_universal,
+    "RNA": process_molecule_universal,
+    "protein": process_molecule_universal,
 }
