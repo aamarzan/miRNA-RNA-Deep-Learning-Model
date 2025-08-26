@@ -105,15 +105,15 @@ def predict_graph_structure(molecule_id, sequence):
 def load_codon_table(table_path):
     """
     Loads a codon usage table from a text file into a dictionary.
-    Format expected: UUU F 17.6 (1059)
+    Handles the multi-column format from the Kazusa database.
     """
     codon_map = {}
     try:
         with open(table_path, 'r') as f:
             for line in f:
-                parts = re.findall(r'([A-Z]{3})\s+([A-Z*])\s+([\d\.]+)', line)
-                if parts:
-                    codon, aa, freq = parts[0]
+                # <<< FIX: Use re.findall to capture all codon entries on a single line >>>
+                parts = re.findall(r'([A-Z]{3})\s+([A-Z\*])\s+([\d\.]+)', line)
+                for codon, aa, freq in parts:
                     if aa not in codon_map:
                         codon_map[aa] = []
                     codon_map[aa].append({'codon': codon.replace('T', 'U'), 'freq': float(freq)})
@@ -121,11 +121,20 @@ def load_codon_table(table_path):
         print(f"  - WARNING: Codon usage table not found at {table_path}. Reverse translation will fail.")
         return None
     
+    if not codon_map:
+        print(f"  - WARNING: Could not parse any data from the codon table at {table_path}. Check the file content and format.")
+        return None
+
     # Normalize frequencies for probabilistic selection
     for aa, codons in codon_map.items():
         total_freq = sum(c['freq'] for c in codons)
-        for c in codons:
-            c['prob'] = c['freq'] / total_freq
+        if total_freq > 0:
+            for c in codons:
+                c['prob'] = c['freq'] / total_freq
+        else:
+             # Handle cases where all frequencies are 0
+            for c in codons:
+                 c['prob'] = 1.0 / len(codons)
             
     return codon_map
 
