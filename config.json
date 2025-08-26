@@ -33,18 +33,18 @@
         "enable_pdb_processing": false,
         "focus_on_target_region": false,
         "target_region_name": "WholeSequence",
-        "target_region_slice": [0, 10000],
+        "target_region_slice": [0, 2500],
         "min_mirna_len": 10,
         "max_mirna_len": 200,
-        "min_target_len": 50,
-        "max_target_len": 10000,
-        "min_competitor_len": 50,
-        "max_competitor_len": 10000,
+        "min_target_len": 20,
+        "max_target_len": 2500,
+        "min_competitor_len": 20,
+        "max_competitor_len": 2500,
         "min_gc_content": 0.20,
         "max_gc_content": 0.90
     },
     "data_processing": {
-        "batch_size_parquet": 5000
+        "batch_size_parquet": 1000
     },
     "dataset_splitting": {
         "_comment": "Parameters for Stage 1b (s1b_split_dataset.py).",
@@ -64,8 +64,8 @@
         "sequence_padding": {
             "_comment": "Settings for a 'Model M' (Medium) foundation model.",
             "max_primary_len": 200,
-            "max_target_len": 10000,
-            "max_competitor_len": 10000
+            "max_target_len": 2500,
+            "max_competitor_len": 2500
         },
         "model_architecture": {
             "_comment": "Smaller architecture for faster training on CPU.",
