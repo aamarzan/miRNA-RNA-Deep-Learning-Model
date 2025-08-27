@@ -1,4 +1,16 @@
-# 3_model_building.py (Definitive, Final Version)
+# s3_build_model.py (Definitive, Fully Commented Version)
+#
+# PURPOSE:
+# This is the primary model training script. It loads the final processed data
+# (in compressed .npz format), builds the "Supreme" hybrid model architecture
+# (CNN-LSTM-Attention-GNN), and runs the training process. It is fully
+# controlled by the parameters set in the 'config.json' file.
+#
+# WORKFLOW:
+# This script is the main event (Stage 3). It should be run after the full
+# data preparation pipeline (s1, s1b, s2, s2b) is complete and the final
+# .npz files are ready in the 'processed_for_dl' folder.
+#
 import os
 import json
 import numpy as np
@@ -14,6 +26,10 @@ from spektral.layers import GCSConv
 
 # --- Configuration Loader ---
 def load_config(config_path=None):
+    """
+    Loads the configuration from a JSON file.
+    It automatically finds 'config.json' in the project's root directory.
+    """
     if config_path is None:
         script_dir = os.path.dirname(os.path.realpath(__file__))
         project_root = os.path.dirname(script_dir) 
@@ -26,8 +42,13 @@ def load_config(config_path=None):
         print(f"FATAL: Configuration file not found at '{config_path}'.")
         exit()
 
-# --- Custom Data Generator (Final, Robust Version) ---
+# --- Custom Data Generator ---
 class DataGenerator(tf.keras.utils.Sequence):
+    """
+    A memory-safe data generator that loads data in batches from disk.
+    It automatically detects which input .npz files are available and
+    supports optional sample weighting to handle imbalanced datasets.
+    """
     def __init__(self, data_path, batch_size, indices, prefix, advanced_params):
         self.data_path = data_path
         self.batch_size = batch_size
@@ -36,73 +57,86 @@ class DataGenerator(tf.keras.utils.Sequence):
         self.use_sample_weights = advanced_params.get('use_sample_weighting', False)
         self.weight_alpha = advanced_params.get('sample_weight_alpha', 10.0)
         
-        # <<< CHANGE: Using the robust, explicit file-checking logic from our sanity check >>>
-        # Define all *potential* input keys we might have now or in the future
+        # Define all *potential* input keys the model might use
         potential_keys = [
-            'primary_sequence_input',
-            'primary_structure_input',
-            'target_sequence_input',
-            'competitor_sequence_input',
-            'numerical_features_input',
-            'primary_adjacency_input',
-            'target_adjacency_input',
-            'competitor_adjacency_input'
+            'primary_sequence_input', 'primary_structure_input',
+            'target_sequence_input', 'competitor_sequence_input',
+            'numerical_features_input', 'primary_adjacency_input',
+            'target_adjacency_input', 'competitor_adjacency_input'
         ]
         
+        # Scan the directory and find which of the potential files actually exist
         self.input_keys = []
         print(f"  - DataGenerator searching for inputs in: {data_path}")
         for key in potential_keys:
-            filepath = os.path.join(self.data_path, f'{self.prefix}{key}.npy')
+            filepath = os.path.join(self.data_path, f'{self.prefix}{key}.npz')
             if os.path.exists(filepath):
                 self.input_keys.append(key)
         
         if not self.input_keys:
-            raise FileNotFoundError(f"No input .npy files starting with '{self.prefix}' found in '{data_path}'.")
+            raise FileNotFoundError(f"No input .npz files starting with '{self.prefix}' found in '{data_path}'.")
         print(f"  - Found {len(self.input_keys)} input sources: {sorted(self.input_keys)}")
 
-        self.inputs = {key: np.load(os.path.join(data_path, f'{self.prefix}{key}.npy'), mmap_mode='r') for key in self.input_keys}
+        # Load the arrays from within the .npz archive files.
+        # .npz files are like zip files for arrays; we need to open them
+        # and access the array we saved under the key 'data'.
+        self.inputs = {}
+        for key in self.input_keys:
+            npz_file_path = os.path.join(data_path, f'{self.prefix}{key}.npz')
+            with np.load(npz_file_path, mmap_mode='r') as loaded_file:
+                self.inputs[key] = loaded_file['data']
         
-        target_filename = 'y_train.npy' if 'train' in self.prefix else 'y_test.npy'
-        self.targets = np.load(os.path.join(self.data_path, target_filename), mmap_mode='r')
+        target_filename = 'y_train.npz' if 'train' in self.prefix else 'y_test.npz'
+        target_filepath = os.path.join(self.data_path, target_filename)
+        with np.load(target_filepath, mmap_mode='r') as loaded_file:
+            self.targets = loaded_file['data']
 
     def __len__(self):
+        # Calculates the number of batches per epoch
         return int(np.floor(len(self.indices) / self.batch_size))
 
     def __getitem__(self, index):
+        # Generates one batch of data
         batch_indices = self.indices[index * self.batch_size:(index + 1) * self.batch_size]
+        
         X = {key: self.inputs[key][batch_indices] for key in self.input_keys}
         y = self.targets[batch_indices]
         
         if self.use_sample_weights:
+            # If enabled in config, calculate and return weights for this batch
             sample_weights = 1.0 + (y * self.weight_alpha)
             return X, y, sample_weights
         else:
             return X, y
 
-# <<< NEW: Custom callback to save history after each epoch >>>
+# --- Custom Callbacks ---
 class HistoryLogger(tf.keras.callbacks.Callback):
+    """
+    A custom callback to save the training history to a JSON file after each epoch.
+    This prevents losing history if the training is interrupted.
+    """
     def __init__(self, filepath):
         super(HistoryLogger, self).__init__()
         self.filepath = filepath
-        # Initialize the history dictionary
         self.history = {}
 
     def on_epoch_end(self, epoch, logs=None):
         logs = logs or {}
-        # Append the logs to our history dictionary
         for k, v in logs.items():
             self.history.setdefault(k, []).append(v)
         
-        # Save the updated history to the JSON file
-        # Convert numpy values to native Python types for JSON serialization
         history_for_json = {key: [float(val) for val in values] for key, values in self.history.items()}
         with open(self.filepath, 'w') as f:
             json.dump(history_for_json, f)
-        
         print(f" - History updated and saved to {self.filepath}")
 
-# <<< NEW: Custom Layer for Positional Encoding >>>
+# --- Custom Model Layers ---
 class PositionalEncoding(Layer):
+    """
+    Injects positional information into the sequence data. This helps the model
+    understand the order of nucleotides and identify regions, making it more
+    robust to padding.
+    """
     def __init__(self, max_len, embed_dim):
         super(PositionalEncoding, self).__init__()
         self.pos_encoding = self.positional_encoding(max_len, embed_dim)
@@ -116,57 +150,65 @@ class PositionalEncoding(Layer):
         i = np.arange(embed_dim)[np.newaxis, :]
         angle_rates = 1 / np.power(10000, (2 * (i // 2)) / np.float32(embed_dim))
         angle_rads = pos * angle_rates
-        # apply sin to even indices in the array; 2i
-        angle_rads[:, 0::2] = np.sin(angle_rads[:, 0::2])
-        # apply cos to odd indices in the array; 2i+1
-        angle_rads[:, 1::2] = np.cos(angle_rads[:, 1::2])
+        angle_rads[:, 0::2] = np.sin(angle_rads[:, 0::2]) # sin for even indices
+        angle_rads[:, 1::2] = np.cos(angle_rads[:, 1::2]) # cos for odd indices
         pos_encoding = angle_rads[np.newaxis, ...]
         return tf.cast(pos_encoding, dtype=tf.float32)
 
     def call(self, x):
-        # x shape is (batch, seq_len, features)
         seq_len = tf.shape(x)[1]
         return x + self.pos_encoding[:, :seq_len, :]
 
-# --- Custom Weighted Loss Function (Corrected for new TensorFlow/Keras version) ---
+# --- Custom Loss Function ---
 def create_weighted_mse(pos_weight=5.0, threshold=0.1):
+    """
+    Creates a custom Mean Squared Error loss function that applies a higher
+    penalty to errors on high-affinity samples (y_true > threshold).
+    This forces the model to focus on getting the important predictions right.
+    """
     def weighted_mse(y_true, y_pred):
-        # <<< FIX: Use the class-based MeanSquaredError as recommended by the error message >>>
         mse_loss = tf.keras.losses.MeanSquaredError()
         mse = mse_loss(y_true, y_pred)
-        
-        # Apply higher penalty for errors on high-affinity samples
         weights = tf.where(y_true >= threshold, pos_weight, 1.0)
         return mse * weights
     return weighted_mse
 
+# --- "Supreme" Model Architecture ---
 def build_supreme_model(input_shapes, params):
+    """
+    Builds the hybrid CNN-LSTM-Attention-GNN model.
+    It creates a parallel processing branch for each type of input data.
+    """
+    # Create an Input layer for each available data source
     input_layers = {key: Input(shape=shape, name=key) for key, shape in input_shapes.items()}
     
-    # <<< CHANGE: Positional Encoding is now applied to sequence inputs >>>
+    # -- Reusable Processing Blocks --
     def create_seq_processor(input_tensor, p):
-        # The PositionalEncoding layer gives the model information about the position of each nucleotide
+        # Adds positional info, then processes with CNN (for motifs) and Bi-LSTM (for context)
         max_len, features = input_tensor.shape[1], input_tensor.shape[2]
         pos_encoded_input = PositionalEncoding(max_len, features)(input_tensor)
-        
         x = Conv1D(filters=p['cnn_filters'], kernel_size=p['cnn_kernel_size'], padding='same', activation='relu')(pos_encoded_input)
         x = BatchNormalization()(x)
         x = Bidirectional(LSTM(p['lstm_units'], return_sequences=True))(x)
         return x
 
     def create_graph_processor(seq_input_tensor, adj_input_tensor, p):
+        # Processes graph data (nodes + connections) using Graph Convolutional layers
         x = GCSConv(p['gnn_units'], activation='relu')([seq_input_tensor, adj_input_tensor])
         x = GCSConv(p['gnn_units'], activation='relu')([x, adj_input_tensor])
         return GlobalAveragePooling1D()(x)
 
+    # -- Create all the processing branches --
     arch_params = params['model_architecture']
     primary_seq_processed = create_seq_processor(input_layers['primary_sequence_input'], arch_params)
     target_seq_processed = create_seq_processor(input_layers['target_sequence_input'], arch_params)
     competitor_seq_processed = create_seq_processor(input_layers['competitor_sequence_input'], arch_params)
     
+    # The Attention mechanism learns relationships between the primary and target sequences
     attention_output = MultiHeadAttention(num_heads=arch_params['attention_heads'], key_dim=arch_params['lstm_units'])(query=primary_seq_processed, value=target_seq_processed, key=target_seq_processed)
     attention_output = LayerNormalization()(attention_output + primary_seq_processed)
     
+    # Pool the features from all sequence branches into fixed-size vectors
     features_to_combine = [
         GlobalAveragePooling1D()(attention_output),
         GlobalAveragePooling1D()(target_seq_processed),
@@ -175,12 +217,14 @@ def build_supreme_model(input_shapes, params):
         Dense(16, activation='relu')(input_layers['numerical_features_input'])
     ]
 
+    # Conditionally add GNN branches only if graph data was provided
     gnn_params = params.get('gnn_architecture', {})
     if 'target_adjacency_input' in input_layers:
         print("  - Building GNN branch for Target molecule.")
         target_graph_features = create_graph_processor(input_layers['target_sequence_input'], input_layers['target_adjacency_input'], gnn_params)
         features_to_combine.append(target_graph_features)
     
+    # -- Final Combination and Prediction --
     combined = concatenate(features_to_combine)
     combined = Dropout(params['dropout_rate'])(combined)
     
@@ -193,10 +237,12 @@ def build_supreme_model(input_shapes, params):
     model = Model(inputs=input_layers, outputs=output)
     return model
 
+# --- Main Execution Block ---
 if __name__ == "__main__":
     config = load_config()
     params = config['training_parameters']
     
+    # --- Step 1: Setup Paths ---
     project_root = config['project_root']
     data_path = os.path.join(project_root, config['data_folders']['main_dataset_folder'], config['data_folders']['processed_for_dl_subfolder'])
     model_save_dir = os.path.join(project_root, config['output_folders']['main_models_folder'])
@@ -204,24 +250,26 @@ if __name__ == "__main__":
     os.makedirs(model_save_dir, exist_ok=True)
     os.makedirs(logs_dir, exist_ok=True)
 
-    print("\nStep 1: Getting data indices...")
-    train_indices = np.arange(len(np.load(os.path.join(data_path, 'y_train.npy'))))
-    test_indices = np.arange(len(np.load(os.path.join(data_path, 'y_test.npy'))))
+    # --- Step 2: Prepare Data Generators ---
+    print("\nPreparing data generators...")
+    train_indices = np.arange(len(np.load(os.path.join(data_path, 'y_train.npz'))['data']))
+    test_indices = np.arange(len(np.load(os.path.join(data_path, 'y_test.npz'))['data']))
     np.random.shuffle(train_indices)
 
-    print("\nStep 2: Creating data generators...")
     adv_params = params['advanced_training']
     train_generator = DataGenerator(data_path, params['batch_size'], train_indices, 'X_train_', adv_params)
     test_generator = DataGenerator(data_path, params['batch_size'], test_indices, 'X_test_', adv_params)
 
-    print("\nStep 3: Building the 'Supreme' regression model...")
+    # --- Step 3: Build and Compile Model ---
+    print("\nBuilding the 'Supreme' regression model...")
     sample_X, _, _ = train_generator[0]
     input_shapes = {key: val.shape[1:] for key, val in sample_X.items()}
     
     model = build_supreme_model(input_shapes, params)
     
-    if params['advanced_training']['use_custom_loss']:
-        loss_function = create_weighted_mse(params['advanced_training']['custom_loss_pos_weight'])
+    # Select loss function based on config settings
+    if adv_params['use_custom_loss']:
+        loss_function = create_weighted_mse(adv_params['custom_loss_pos_weight'])
         print("  - Using custom weighted MSE loss function.")
     else:
         loss_function = 'mean_squared_error'
@@ -229,25 +277,30 @@ if __name__ == "__main__":
     model.compile(optimizer=Adam(learning_rate=params['learning_rate']), loss=loss_function, metrics=['mean_absolute_error'])
     model.summary()
 
-    print("\nStep 4: Defining callbacks...")
+    # --- Step 4: Define Callbacks ---
+    print("\nDefining callbacks...")
     model_filepath = os.path.join(model_save_dir, 'best_supreme_model.keras')
     history_filepath = os.path.join(model_save_dir, 'history_supreme_model.json')
     log_dir = os.path.join(logs_dir, "fit", datetime.datetime.now().strftime("%Y%m%d-%H%M%S"))
     
     callbacks = [
         ModelCheckpoint(filepath=model_filepath, save_best_only=True, monitor='val_loss', mode='min', verbose=1),
-        EarlyStopping(monitor='val_loss', patience=train_params['advanced_training'].get('early_stopping_patience', 10), mode='min', restore_best_weights=True),
+        EarlyStopping(monitor='val_loss', patience=adv_params.get('early_stopping_patience', 10), mode='min', restore_best_weights=True),
         ReduceLROnPlateau(monitor='val_loss', factor=0.2, patience=5, min_lr=1e-6),
         TensorBoard(log_dir=log_dir),
-        HistoryLogger(filepath=history_filepath)
+        HistoryLogger(filepath=history_filepath) # Our custom history saver
     ]
+    print(f"  - Model checkpoints will be saved to: {model_filepath}")
+    print(f"  - TensorBoard logs will be saved to: {log_dir}")
 
-    print("\nStep 5: Starting model training...")
-    history = model.fit(train_generator, epochs=params['epochs'], validation_data=test_generator, callbacks=callbacks, verbose=1)
-
-    print(f"\nStep 6: Saving training history...")
-    history_dict = {key: [float(val) for val in values] for key, values in history.history.items()}
-    with open(history_filepath, 'w') as f:
-        json.dump(history_dict, f)
+    # --- Step 5: Start Training ---
+    print("\nStarting model training...")
+    model.fit(
+        train_generator,
+        epochs=params['epochs'],
+        validation_data=test_generator,
+        callbacks=callbacks,
+        verbose=1
+    )
 
     print("\n--- Supreme Model Training Complete ---")
