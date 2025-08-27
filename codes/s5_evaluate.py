@@ -26,17 +26,17 @@ def load_config(config_path=None):
         exit()
 
 def load_test_data(data_path):
-    """Dynamically finds and loads all X_test_*.npy files."""
+    """Dynamically finds and loads all X_test_*.npz files."""
     X_test = {}
     print(f"  - Searching for test data in: {data_path}")
     all_files = os.listdir(data_path)
-    test_files = sorted([f for f in all_files if f.startswith('X_test_') and f.endswith('.npy')])
+    test_files = sorted([f for f in all_files if f.startswith('X_test_') and f.endswith('.npz')])
     for f in test_files:
-        key = f.replace('X_test_', '').replace('.npy', '')
+        key = f.replace('X_test_', '').replace('.npz', '')
         print(f"    - Loading: {f}")
         X_test[key] = np.load(os.path.join(data_path, f), mmap_mode='r')
     
-    y_test = np.load(os.path.join(data_path, 'y_test.npy'), mmap_mode='r')
+    y_test = np.load(os.path.join(data_path, 'y_test.npz'), mmap_mode='r')
     return X_test, y_test
 
 def analyze_model_performance():
