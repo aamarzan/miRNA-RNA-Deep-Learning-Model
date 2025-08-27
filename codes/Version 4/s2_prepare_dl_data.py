@@ -151,25 +151,27 @@ def main():
         processed_rows += len(df)
         print(f"  - Processed {processed_rows}/{num_rows} rows...", end='\r')
 
-    # --- Step 6: Finalize and Save Arrays ---
-    print("\n\nStep 4: Concatenating and saving final NumPy arrays...")
+# --- Step 6: Finalize and Save Arrays ---
+    print("\n\nStep 4: Concatenating and saving final compressed .npz arrays...")
     
     # Save training data
     if y_train_batches:
         y_train_final = np.concatenate(y_train_batches)
-        np.save(os.path.join(output_dl_folder, 'y_train.npy'), y_train_final)
+        # --- SAVE DIRECTLY TO NPZ ---
+        np.savez_compressed(os.path.join(output_dl_folder, 'y_train.npz'), data=y_train_final)
         for key in X_train_batches:
             X_train_final = np.concatenate(X_train_batches[key])
-            np.save(os.path.join(output_dl_folder, f'X_train_{key}.npy'), X_train_final)
+            np.savez_compressed(os.path.join(output_dl_folder, f'X_train_{key}.npz'), data=X_train_final)
         print(f"  - Saved {len(y_train_final)} training samples.")
 
     # Save test data
     if y_test_batches:
         y_test_final = np.concatenate(y_test_batches)
-        np.save(os.path.join(output_dl_folder, 'y_test.npy'), y_test_final)
+        # --- SAVE DIRECTLY TO NPZ ---
+        np.savez_compressed(os.path.join(output_dl_folder, 'y_test.npz'), data=y_test_final)
         for key in X_test_batches:
             X_test_final = np.concatenate(X_test_batches[key])
-            np.save(os.path.join(output_dl_folder, f'X_test_{key}.npy'), X_test_final)
+            np.savez_compressed(os.path.join(output_dl_folder, f'X_test_{key}.npz'), data=X_test_final)
         print(f"  - Saved {len(y_test_final)} test samples.")
         
     end_time = time.time()

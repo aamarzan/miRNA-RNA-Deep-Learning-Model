@@ -74,7 +74,7 @@ def prepare_dataset(config):
     data_sources = {}
     for name, source_info in config['data_sources'].items():
         if name.startswith('_'): continue
-        path = os.path.join(DATA_ROOT, source_info['folder'], 'select')
+        path = os.path.join(DATA_ROOT, 'raw_data', source_info['folder'])
         if source_info['type'] == 'fasta':
             data_sources[name] = load_data_from_fasta(path)
         elif source_info['type'] == 'score':
@@ -98,22 +98,20 @@ def prepare_dataset(config):
         processor_func = PROCESSOR_MAP.get(molecule_type)
         if not processor_func: continue
 
-        processing_args = [((mol_id, seq), PARAMS, role) for mol_id, seq in raw_molecules.items()]
         with Pool(processes=cpu_count()) as pool:
-            results = pool.map(processor_func, processing_args)
+            results = pool.map(processor_func, [((mol_id, seq), PARAMS, role) for mol_id, seq in raw_molecules.items()])
         
         processed_data[role] = [res for res in results if isinstance(res, dict)]
-        print(f"    - {len(processed_data[role])} molecules passed filters.")
+        print(f"    - {len(processed_data[role])} molecules passed processing.")
 
     primary_molecules = processed_data.get('primary_molecule', [])
     target_molecules = processed_data.get('target_molecule', [])
     competitor_molecules = processed_data.get('competitor_molecule', [])
 
     if not primary_molecules or not target_molecules:
-        print("\nCRITICAL ERROR: No primary or target molecules remained after filtering. Halting.")
+        print("\nCRITICAL ERROR: No primary or target molecules remained after processing. Halting.")
         return
 
-    # <<< FIX: The score augmentation now correctly targets the processed primary molecules >>>
     print("\nStep 3: Augmenting primary molecules with scores...")
     for molecule_data in primary_molecules:
         molecule_id = molecule_data['id']
@@ -127,37 +125,27 @@ def prepare_dataset(config):
     output_filename = f"Prepared_Dataset_{int(time.time())}.parquet"
     output_path = os.path.join(PREPARED_DATASET_DIR, output_filename)
     
-    # <<< FIX: The null competitor now has all necessary keys to prevent errors >>>
     null_competitor = {'id': 'NO_COMPETITOR', 'sequence': '', 'original_sequence': '', 'gc_content': 0.0, 'dg': 0.0, 'structure_vector': '[]', 'adjacency_matrix': '[]'}
     competitors_augmented = competitor_molecules + [null_competitor]
     
     parquet_writer = None
     batch, total_rows = [], 0
     
-    # <<< FIX: The loop now correctly iterates over dictionaries of processed data >>>
     combinations = product(primary_molecules, target_molecules, competitors_augmented)
 
     for primary_data, target_data, competitor_data in combinations:
-        # <<< FIX: The row creation is now robust and uses unique column names >>>
         row = {
-            'primary_id': primary_data.get('id'),
-            'primary_sequence': primary_data.get('sequence'),
-            'gc_content': primary_data.get('gc_content'),
-            'dg': primary_data.get('dg'),
-            'structure_vector': primary_data.get('structure_vector'),
-            'adjacency_matrix': primary_data.get('adjacency_matrix'),
-            'affinity': primary_data.get('affinity'),
-            'conservation': primary_data.get('conservation'),
-            'target_id': target_data.get('id'),
-            'target_sequence': target_data.get('sequence'),
-            'competitor_id': competitor_data.get('id'),
-            'competitor_sequence': competitor_data.get('sequence')
+            'primary_id': primary_data.get('id'), 'primary_sequence': primary_data.get('sequence'),
+            'gc_content': primary_data.get('gc_content'), 'dg': primary_data.get('dg'),
+            'structure_vector': primary_data.get('structure_vector'), 'adjacency_matrix': primary_data.get('adjacency_matrix'),
+            'affinity': primary_data.get('affinity'), 'conservation': primary_data.get('conservation'),
+            'target_id': target_data.get('id'), 'target_sequence': target_data.get('sequence'),
+            'competitor_id': competitor_data.get('id'), 'competitor_sequence': competitor_data.get('sequence')
         }
         batch.append(row)
 
         if len(batch) >= PARAMS.get('batch_size_parquet', 50000):
-            df_batch = pd.DataFrame(batch)
-            table = pa.Table.from_pandas(df_batch, preserve_index=False)
+            table = pa.Table.from_pandas(pd.DataFrame(batch), preserve_index=False)
             if parquet_writer is None:
                 parquet_writer = pq.ParquetWriter(output_path, table.schema)
             parquet_writer.write_table(table)
@@ -166,17 +154,10 @@ def prepare_dataset(config):
             batch = []
 
     if batch:
-        df_batch = pd.DataFrame(batch)
-        table = pa.Table.from_pandas(df_batch, preserve_index=False)
+        table = pa.Table.from_pandas(pd.DataFrame(batch), preserve_index=False)
         if parquet_writer is None:
-            # This handles cases where the total dataset is smaller than one batch
-            if not os.path.exists(output_path) and not table.schema:
-                 print("\nWarning: No data to write. The resulting combination is empty.")
-            else:
-                parquet_writer = pq.ParquetWriter(output_path, table.schema)
-                parquet_writer.write_table(table)
-        else:
-            parquet_writer.write_table(table)
+            parquet_writer = pq.ParquetWriter(output_path, table.schema)
+        parquet_writer.write_table(table)
         total_rows += len(batch)
 
     if parquet_writer: parquet_writer.close()

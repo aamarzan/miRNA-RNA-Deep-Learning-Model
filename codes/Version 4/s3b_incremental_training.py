@@ -66,8 +66,14 @@ if __name__ == "__main__":
         print(f"  - Error finding new data files: {e}. Please run data prep for the new dataset first.")
         exit()
     
-    new_train_generator = DataGenerator(new_data_path, train_params['batch_size'], train_indices, 'X_train_', train_params['advanced_training'])
-    new_test_generator = DataGenerator(new_data_path, train_params['batch_size'], test_indices, 'X_test_', train_params['advanced_training'])
+    # --- FIX: Pass the model_inputs from config ---
+    model_inputs = train_params.get('model_inputs')
+    if not model_inputs:
+        print("FATAL: 'model_inputs' key not found in training_parameters of config.json.")
+        exit()
+        
+    new_train_generator = DataGenerator(new_data_path, train_params['batch_size'], train_indices, 'X_train_', train_params['advanced_training'], model_inputs)
+    new_test_generator = DataGenerator(new_data_path, train_params['batch_size'], test_indices, 'X_test_', train_params['advanced_training'], model_inputs)
 
     # --- Step 4: Re-compile the model with a VERY LOW learning rate ---
     print("\nRe-compiling model with a low learning rate for fine-tuning...")

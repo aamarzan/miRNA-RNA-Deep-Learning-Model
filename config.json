@@ -1,6 +1,10 @@
 {
     "_comment_project": "This file is the central control panel for the entire data preparation pipeline.",
+    "experiment_id": "exp_001_initial_run",
     "project_root": "E:/1. miRNA-RNA-Deep-Learning-Model",
+    "file_paths": {
+        "codon_table": "dataset/raw_data/codon_tables/human_codon_usage.txt"
+    },
     "data_folders": {
         "main_dataset_folder": "dataset",
         "prepared_subfolder": "prepared_dataset",
@@ -16,21 +20,26 @@
         "rnafold": "",
         "dssr": "E:/1. miRNA-RNA-Deep-Learning-Model/dataset/dssr/dssr-basic-windows-v2.6.0/x3dna-dssr.exe"
     },
+    "structure_folders": {
+        "_comment": "Define folders where the script will search for PDB/mmCIF files.",
+        "target": "dataset/pdb_files/targets",
+        "competitor": "dataset/pdb_files/competitors"
+    },
     "experiment_setup": {
         "primary_molecule": "miRNA",
         "target_molecule": "RNA",
         "competitor_molecule": "protein"
     },
     "data_sources": {
-        "mirna": {"folder": "miRNA_dataset", "type": "fasta"},
-        "rna_target": {"folder": "target", "type": "fasta"},
-        "protein_competitor": {"folder": "competitor", "type": "fasta"},
-        "affinity": {"folder": "affinity_score", "type": "score", "id_col": "mirna", "score_col": "interaction_score"},
-        "conservation": {"folder": "conservation_score", "type": "score", "id_col": "miR Family", "score_col": "PCT"}
+        "mirna": {"folder": "miRNA_dataset/select", "type": "fasta"},
+        "rna_target": {"folder": "target/select", "type": "fasta"},
+        "protein_competitor": {"folder": "competitor/select", "type": "fasta"},
+        "affinity": {"folder": "affinity_score/select", "type": "score", ...},
+        "conservation": {"folder": "conservation_score/select", "type": "score", ...}
     },
     "processing_parameters": {
         "_comment": "Parameters for Stage 1 (s1_prepare_dataset.py).",
-        "enable_pdb_processing": false,
+        "enable_pdb_processing": true,
         "focus_on_target_region": false,
         "target_region_name": "WholeSequence",
         "target_region_slice": [0, 2500],
@@ -53,6 +62,14 @@
     },
     "training_parameters": {
         "_comment": "Parameters for Stage 3 (s3_build_model.py).",
+        "model_inputs": [
+            "primary_sequence_input",
+            "primary_structure_input",
+            "target_sequence_input",
+            "competitor_sequence_input",
+            "numerical_features_input",
+            "target_adjacency_input"
+        ],
         "task_type": "regression",
         "batch_size": 256,
         "epochs": 40,
@@ -89,6 +106,7 @@
         "_comment": "Parameters for Stage 4 (s4_predict.py).",
         "model_to_use": "best_supreme_model.keras",
         "output_filename": "ranked_predictions.parquet",
+        "length_detection_mode": "auto",
         "input_folders": {
             "primary": "primary_to_rank",
             "target": "target_to_predict",
@@ -96,10 +114,6 @@
         },
         "use_prediction_region_slice": true,
         "prediction_target_region_slice": [90, 150]
-    },
-    "structure_files": {
-        "ID_from_target_fasta": "E:/1. miRNA-RNA-Deep-Learning-Model/prediction/target_to_predict/test.pdb",
-        "ID_from_competitor_fasta": "E:/1. miRNA-RNA-Deep-Learning-Model/prediction/competitor_to_compare/test.pdb"
     },
     "incremental_training": {
         "_comment": "Parameters for Stage 3b (s3b_incremental_training.py).",

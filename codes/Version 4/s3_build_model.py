@@ -46,10 +46,9 @@ def load_config(config_path=None):
 class DataGenerator(tf.keras.utils.Sequence):
     """
     A memory-safe data generator that loads data in batches from disk.
-    It automatically detects which input .npz files are available and
-    supports optional sample weighting to handle imbalanced datasets.
+    It dynamically discovers which of the configured input files are available.
     """
-    def __init__(self, data_path, batch_size, indices, prefix, advanced_params):
+    def __init__(self, data_path, batch_size, indices, prefix, advanced_params, model_inputs):
         self.data_path = data_path
         self.batch_size = batch_size
         self.indices = indices
@@ -57,29 +56,21 @@ class DataGenerator(tf.keras.utils.Sequence):
         self.use_sample_weights = advanced_params.get('use_sample_weighting', False)
         self.weight_alpha = advanced_params.get('sample_weight_alpha', 10.0)
         
-        # Define all *potential* input keys the model might use
-        potential_keys = [
-            'primary_sequence_input', 'primary_structure_input',
-            'target_sequence_input', 'competitor_sequence_input',
-            'numerical_features_input', 'primary_adjacency_input',
-            'target_adjacency_input', 'competitor_adjacency_input'
-        ]
+        # --- MODIFICATION: Reads input keys from config ---
+        potential_keys = model_inputs
         
         # Scan the directory and find which of the potential files actually exist
         self.input_keys = []
-        print(f"  - DataGenerator searching for inputs in: {data_path}")
+        print(f"  - DataGenerator searching for configured inputs in: {data_path}")
         for key in potential_keys:
             filepath = os.path.join(self.data_path, f'{self.prefix}{key}.npz')
             if os.path.exists(filepath):
                 self.input_keys.append(key)
         
         if not self.input_keys:
-            raise FileNotFoundError(f"No input .npz files starting with '{self.prefix}' found in '{data_path}'.")
-        print(f"  - Found {len(self.input_keys)} input sources: {sorted(self.input_keys)}")
+            raise FileNotFoundError(f"No input .npz files matching configured keys found in '{data_path}'.")
+        print(f"  - Found {len(self.input_keys)} available input sources: {sorted(self.input_keys)}")
 
-        # Load the arrays from within the .npz archive files.
-        # .npz files are like zip files for arrays; we need to open them
-        # and access the array we saved under the key 'data'.
         self.inputs = {}
         for key in self.input_keys:
             npz_file_path = os.path.join(data_path, f'{self.prefix}{key}.npz')
@@ -92,18 +83,13 @@ class DataGenerator(tf.keras.utils.Sequence):
             self.targets = loaded_file['data']
 
     def __len__(self):
-        # Calculates the number of batches per epoch
         return int(np.floor(len(self.indices) / self.batch_size))
 
     def __getitem__(self, index):
-        # Generates one batch of data
         batch_indices = self.indices[index * self.batch_size:(index + 1) * self.batch_size]
-        
         X = {key: self.inputs[key][batch_indices] for key in self.input_keys}
         y = self.targets[batch_indices]
-        
         if self.use_sample_weights:
-            # If enabled in config, calculate and return weights for this batch
             sample_weights = 1.0 + (y * self.weight_alpha)
             return X, y, sample_weights
         else:
@@ -132,17 +118,21 @@ class HistoryLogger(tf.keras.callbacks.Callback):
 
 # --- Custom Model Layers ---
 class PositionalEncoding(Layer):
-    """
-    Injects positional information into the sequence data. This helps the model
-    understand the order of nucleotides and identify regions, making it more
-    robust to padding.
-    """
-    def __init__(self, max_len, embed_dim):
-        super(PositionalEncoding, self).__init__()
+    # Keras needs to know the arguments used to create the layer to save its config
+    def __init__(self, max_len, embed_dim, **kwargs):
+        super(PositionalEncoding, self).__init__(**kwargs)
+        self.max_len = max_len
+        self.embed_dim = embed_dim
+        # The positional encoding is created once and stored as a non-trainable weight
         self.pos_encoding = self.positional_encoding(max_len, embed_dim)
 
     def get_config(self):
+        # This method tells Keras how to save the configuration of this layer
         config = super().get_config()
+        config.update({
+            "max_len": self.max_len,
+            "embed_dim": self.embed_dim,
+        })
         return config
 
     def positional_encoding(self, max_len, embed_dim):
@@ -150,8 +140,8 @@ class PositionalEncoding(Layer):
         i = np.arange(embed_dim)[np.newaxis, :]
         angle_rates = 1 / np.power(10000, (2 * (i // 2)) / np.float32(embed_dim))
         angle_rads = pos * angle_rates
-        angle_rads[:, 0::2] = np.sin(angle_rads[:, 0::2]) # sin for even indices
-        angle_rads[:, 1::2] = np.cos(angle_rads[:, 1::2]) # cos for odd indices
+        angle_rads[:, 0::2] = np.sin(angle_rads[:, 0::2])
+        angle_rads[:, 1::2] = np.cos(angle_rads[:, 1::2])
         pos_encoding = angle_rads[np.newaxis, ...]
         return tf.cast(pos_encoding, dtype=tf.float32)
 
@@ -242,13 +232,18 @@ if __name__ == "__main__":
     config = load_config()
     params = config['training_parameters']
     
-    # --- Step 1: Setup Paths ---
+# --- Step 1: Setup Paths ---
     project_root = config['project_root']
-    data_path = os.path.join(project_root, config['data_folders']['main_dataset_folder'], config['data_folders']['processed_for_dl_subfolder'])
-    model_save_dir = os.path.join(project_root, config['output_folders']['main_models_folder'])
-    logs_dir = os.path.join(project_root, config['output_folders']['logs_subfolder'])
+    experiment_id = config.get('experiment_id', f"run_{int(time.time())}") # Use ID or a timestamp fallback
+
+    # Create a dedicated folder for this experiment's outputs
+    experiment_dir = os.path.join(project_root, 'experiments', experiment_id)
+    model_save_dir = os.path.join(experiment_dir, config['output_folders']['main_models_folder'])
+    logs_dir = os.path.join(experiment_dir, config['output_folders']['logs_subfolder'])
     os.makedirs(model_save_dir, exist_ok=True)
     os.makedirs(logs_dir, exist_ok=True)
+
+    data_path = os.path.join(project_root, config['data_folders']['main_dataset_folder'], config['data_folders']['processed_for_dl_subfolder'])
 
     # --- Step 2: Prepare Data Generators ---
     print("\nPreparing data generators...")
@@ -257,8 +252,13 @@ if __name__ == "__main__":
     np.random.shuffle(train_indices)
 
     adv_params = params['advanced_training']
-    train_generator = DataGenerator(data_path, params['batch_size'], train_indices, 'X_train_', adv_params)
-    test_generator = DataGenerator(data_path, params['batch_size'], test_indices, 'X_test_', adv_params)
+    model_inputs = params.get('model_inputs') # Get the list from config
+    if not model_inputs:
+        print("FATAL: 'model_inputs' key not found in training_parameters of config.json.")
+        exit()
+
+    train_generator = DataGenerator(data_path, params['batch_size'], train_indices, 'X_train_', adv_params, model_inputs)
+    test_generator = DataGenerator(data_path, params['batch_size'], test_indices, 'X_test_', adv_params, model_inputs)
 
     # --- Step 3: Build and Compile Model ---
     print("\nBuilding the 'Supreme' regression model...")
