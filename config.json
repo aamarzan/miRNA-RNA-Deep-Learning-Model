@@ -34,8 +34,8 @@
         "mirna": {"folder": "miRNA_dataset/select", "type": "fasta"},
         "rna_target": {"folder": "target/select", "type": "fasta"},
         "protein_competitor": {"folder": "competitor/select", "type": "fasta"},
-        "affinity": {"folder": "affinity_score/select", "type": "score", ...},
-        "conservation": {"folder": "conservation_score/select", "type": "score", ...}
+        "affinity": {"folder": "affinity_score/select", "type": "score", "id_col": "mirna", "score_col": "interaction_score"},
+        "conservation": {"folder": "conservation_score/select", "type": "score", "id_col": "miR Family", "score_col": "PCT"}
     },
     "processing_parameters": {
         "_comment": "Parameters for Stage 1 (s1_prepare_dataset.py).",
