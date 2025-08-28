@@ -14,12 +14,11 @@ import pyarrow.parquet as pq
 def load_config(config_path=None):
     """
     Loads the configuration from a JSON file.
-    If no path is given, it automatically finds 'config.json' in the project root.
+    If no path is given, it automatically finds 'config.json' in the same directory as the script.
     """
     if config_path is None:
         script_dir = os.path.dirname(os.path.realpath(__file__))
-        project_root = os.path.dirname(script_dir) 
-        config_path = os.path.join(project_root, 'config.json')
+        config_path = os.path.join(script_dir, 'config.json')
     
     print(f"--- Loading configuration from: {config_path} ---")
     try:
@@ -100,9 +99,10 @@ def main():
     print("\nStep 3: Processing and saving datasets in memory-safe batches...")
     
     # Define constants from config
-    max_primary_len = params.get('max_mirna_len', 80)
-    max_target_len = params.get('max_rre_len', 150)
-    max_competitor_len = params.get('max_rev_len', 200)
+    pad_params = params['sequence_padding']
+    max_primary_len = pad_params['max_primary_len']
+    max_target_len = pad_params['max_target_len']
+    max_competitor_len = pad_params['max_competitor_len']
     target_feature = params.get('target_feature', 'affinity')
     nucleotide_map = {'A': 0, 'U': 1, 'G': 2, 'C': 3, 'N': 4}
     

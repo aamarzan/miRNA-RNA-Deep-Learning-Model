@@ -31,11 +31,14 @@ os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
 warnings.filterwarnings(action='ignore', category=UserWarning)
 
 def load_config(config_path=None):
-    """Loads the configuration from the project's root JSON file."""
+    """
+    Loads the configuration from a JSON file.
+    If no path is given, it automatically finds 'config.json' in the same directory as the script.
+    """
     if config_path is None:
         script_dir = os.path.dirname(os.path.realpath(__file__))
-        project_root = os.path.dirname(script_dir) 
-        config_path = os.path.join(project_root, 'config.json')
+        config_path = os.path.join(script_dir, 'config.json')
+    
     print(f"--- Loading configuration from: {config_path} ---")
     try:
         with open(config_path, 'r') as f:
@@ -113,7 +116,13 @@ def main():
     
     # --- 1. Setup paths from config ---
     project_root = config['project_root']
-    model_dir = os.path.join(project_root, config['output_folders']['main_models_folder'])
+    experiment_id = pred_params.get('experiment_to_use')
+    if not experiment_id:
+        print("FATAL ERROR: 'experiment_to_use' not specified in prediction_parameters of config.json.")
+        exit()
+
+    experiment_dir = os.path.join(project_root, 'experiments', experiment_id)
+    model_dir = os.path.join(experiment_dir, config['output_folders']['main_models_folder'])
     scaler_path = os.path.join(project_root, config['data_folders']['main_dataset_folder'], config['data_folders']['processed_for_dl_subfolder'], 'minmax_scaler.pkl')
     prediction_dir = os.path.join(project_root, config['output_folders']['prediction_subfolder'])
     os.makedirs(prediction_dir, exist_ok=True)

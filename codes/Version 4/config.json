@@ -104,6 +104,7 @@
     },
     "prediction_parameters": {
         "_comment": "Parameters for Stage 4 (s4_predict.py).",
+        "experiment_to_use": "exp_001_initial_run",
         "model_to_use": "best_supreme_model.keras",
         "output_filename": "ranked_predictions.parquet",
         "length_detection_mode": "auto",

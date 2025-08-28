@@ -24,11 +24,14 @@ import seaborn as sns
 from s3_build_model import create_weighted_mse, PositionalEncoding
 
 def load_config(config_path=None):
-    """Loads the configuration from the project's root JSON file."""
+    """
+    Loads the configuration from a JSON file.
+    If no path is given, it automatically finds 'config.json' in the same directory as the script.
+    """
     if config_path is None:
         script_dir = os.path.dirname(os.path.realpath(__file__))
-        project_root = os.path.dirname(script_dir) 
-        config_path = os.path.join(project_root, 'config.json')
+        config_path = os.path.join(script_dir, 'config.json')
+    
     print(f"--- Loading configuration from: {config_path} ---")
     try:
         with open(config_path, 'r') as f:

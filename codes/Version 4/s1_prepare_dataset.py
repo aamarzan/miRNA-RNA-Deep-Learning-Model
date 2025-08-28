@@ -17,9 +17,9 @@ from molecule_processors import PROCESSOR_MAP
 # --- Configuration Loader ---
 def load_config(config_path=None):
     if config_path is None:
+        # Looks for config.json in the same directory as the script.
         script_dir = os.path.dirname(os.path.realpath(__file__))
-        project_root = os.path.dirname(script_dir) 
-        config_path = os.path.join(project_root, 'config.json')
+        config_path = os.path.join(script_dir, 'config.json')
     
     print(f"--- Loading configuration from: {config_path} ---")
     try:
