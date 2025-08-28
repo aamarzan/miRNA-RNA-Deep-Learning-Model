@@ -114,44 +114,61 @@ spacer0 --> A & B
 
 -----
 
+
 ## Project Structure
 
 The repository is organized for clarity and reproducibility. Scripts generate the `experiments`, `prediction`, and processed `dataset` folders.
 
+> **Note on the `datasets` folder:** The full datasets are `.gitignore`'d due to their size. The files present on GitHub serve as a template, showing users the expected directory structure and file formats.
+
+
 ```
+
 E:/1. miRNA-RNA-Deep-Learning-Model/
 ├── codes/
-│   └── Version 4/                 # Location of all Python scripts
+│   └── Version 4/                 \# Location of all Python scripts
 │       ├── config.json
-│       ├── molecule_processors.py
-│       ├── s1a_prepare_dataset.py
-│       ├── s1b_split_dataset.py
-│       ├── s2a_prepare_dl_data.py
-│       ├── s2b_merge_chunks.py
-│       ├── s3a_build_model.py
-│       ├── s3b_incremental_training.py
-│       ├── s4_predict.py
-│       └── s5_evaluate.py
-│       └── supportive_scripts/
-│           ├── x1_test_competitors.py
-│           └── ...
+│       └── ... (s1a, s2a, etc.)
 │
-├── dataset/
-│   ├── raw_data/                  # All raw input data belongs here
-│   ├── pdb_files/                 # Optional: PDB/mmCIF files
-│   ├── prepared_dataset/          # Output of Stage 1
-│   └── processed_for_dl/          # Final output of Stage 2
+├── datasets/                      \# Template for data structure
+│   ├── pdb\_files/
+│   │   ├── competitors/
+│   │   └── targets/
+│   ├── prepared\_dataset/          \# (Empty) Output folder for Stage 1
+│   ├── processed\_for\_dl/          \# (Empty) Output folder for Stage 2
+│   └── raw\_data/
+│       ├── affinity\_score/select/
+│       ├── codon\_tables/
+│       │   └── human\_codon\_usage.txt
+│       ├── competitor/select/
+│       │   └── sample.fasta
+│       ├── conservation\_score/select/
+│       ├── miRNA\_dataset/select/
+│       │   └── sample.fasta
+│       └── target/select/
+│           └── sample.fasta
 │
-├── experiments/                   # All training outputs are saved here
-│   └── exp_001_initial_run/       # Subfolder named by experiment_id
+├── experiments/                   \# All training outputs are saved here
+│   └── exp\_001\_initial\_run/
 │       ├── models/
 │       ├── logs/
 │       └── evaluation/
 │
-├── prediction/                    # For running inference on new molecules
+├── prediction/                    \# For running inference on new molecules
+│   ├── ranked\_predictions.parquet
+│   ├── competitor\_to\_compare/
+│   │   └── sample.fasta
+│   ├── primary\_to\_rank/
+│   │   └── sample.fasta
+│   └── target\_to\_predict/
+│       └── sample.fasta
 │
+├── .gitignore
 ├── LICENSE
+├── manual.docx
 └── README.md
+
+
 ```
 
 -----
