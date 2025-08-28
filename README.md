@@ -39,17 +39,20 @@ graph TD
     classDef process fill:#a3d6e8,color:#000,stroke:#333,stroke-width:2px;
     classDef data fill:#d5f5e3,color:#000,stroke:#333,stroke-width:1px;
     classDef optional fill:#fdebd0,color:#000,stroke:#888,stroke-width:1px,stroke-dasharray: 5 5;
+    classDef spacer fill:none,stroke:none;
 
     subgraph "Stage 0: Data & Configuration"
+        spacer0[ ]:::spacer
         A[Raw Data <br> .fasta, .csv]:::data
         B[config.json <br> Central Control Panel]:::data
+spacer0 --> A & B
     end
 
     subgraph "Stage 1: Dataset Generation"
         C(s1a_prepare_dataset.py):::process
     end
 
-    subgraph "Stage 2: Data Preparation for DL (Chunk-based for Scalability)"
+    subgraph "Stage 2: Data Preparation"
         D((Master Parquet File)):::data
         E("(Optional) <br> s1b_split_dataset.py"):::optional
         F((Parquet Chunks)):::data
