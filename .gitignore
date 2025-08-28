@@ -28,5 +28,3 @@ logs/
 
 # Ignore RNAfold graphical output
 rna.ps
-
-dataset_sample/
