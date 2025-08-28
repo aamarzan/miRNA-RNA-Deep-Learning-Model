@@ -14,6 +14,7 @@ import json
 import datetime
 import numpy as np
 import pandas as pd
+from scipy import stats
 import tensorflow as tf
 from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score
 from scipy.stats import pearsonr
@@ -158,7 +159,80 @@ def analyze_model_performance():
     plt.tight_layout()
     plt.savefig(os.path.join(plots_dir, 'training_history.png'), dpi=300)
     plt.close()
-    print("  - Saved training history plot.")
+    print("  - Generating advanced diagnostic plots...")
+    residuals = y_test - y_pred
+    
+    # Plot 3: Residuals Plot
+    # Shows if errors are randomly distributed or have a pattern.
+    plt.figure(figsize=(10, 7))
+    sns.scatterplot(x=y_pred, y=residuals, alpha=0.5)
+    plt.axhline(y=0, color='r', linestyle='--')
+    plt.title('Residuals vs. Predicted Values', fontsize=16, fontweight='bold')
+    plt.xlabel('Predicted Affinity', fontsize=12)
+    plt.ylabel('Residuals (Actual - Predicted)', fontsize=12)
+    plt.tight_layout()
+    plt.savefig(os.path.join(plots_dir, 'residuals_plot.png'), dpi=300)
+    plt.close()
+    print("  - Saved residuals plot.")
+
+    # Plot 4: Residuals Distribution
+    # Shows if the model has a bias (e.g., consistently over/under-predicting).
+    plt.figure(figsize=(10, 7))
+    sns.histplot(residuals, kde=True, bins=50)
+    plt.title('Distribution of Prediction Residuals', fontsize=16, fontweight='bold')
+    plt.xlabel('Residual Value', fontsize=12)
+    plt.ylabel('Frequency', fontsize=12)
+    plt.tight_layout()
+    plt.savefig(os.path.join(plots_dir, 'residuals_distribution.png'), dpi=300)
+    plt.close()
+    print("  - Saved residuals distribution plot.")
+
+    # Plot 5: Q-Q Plot of Residuals
+    # A rigorous check for the normality of errors.
+    plt.figure(figsize=(7, 7))
+    stats.probplot(residuals, dist="norm", plot=plt)
+    plt.title('Q-Q Plot of Residuals', fontsize=16, fontweight='bold')
+    plt.xlabel('Theoretical Quantiles', fontsize=12)
+    plt.ylabel('Sample Quantiles', fontsize=12)
+    plt.tight_layout()
+    plt.savefig(os.path.join(plots_dir, 'qq_plot.png'), dpi=300)
+    plt.close()
+    print("  - Saved Q-Q plot.")
+
+    # Plot 6: Bland-Altman Plot
+    # Visualizes the agreement between predictions and actual values.
+    plt.figure(figsize=(10, 7))
+    avg = (y_test + y_pred) / 2
+    diff = y_test - y_pred
+    mean_diff = np.mean(diff)
+    std_diff = np.std(diff)
+    sns.scatterplot(x=avg, y=diff, alpha=0.5)
+    plt.axhline(mean_diff, color='r', linestyle='--')
+    plt.axhline(mean_diff + 1.96 * std_diff, color='gray', linestyle='--')
+    plt.axhline(mean_diff - 1.96 * std_diff, color='gray', linestyle='--')
+    plt.title('Bland-Altman Plot for Prediction Agreement', fontsize=16, fontweight='bold')
+    plt.xlabel('Average of Actual and Predicted Affinity', fontsize=12)
+    plt.ylabel('Difference (Actual - Predicted)', fontsize=12)
+    plt.tight_layout()
+    plt.savefig(os.path.join(plots_dir, 'bland_altman_plot.png'), dpi=300)
+    plt.close()
+    print("  - Saved Bland-Altman plot.")
+
+    # Plot 7: Error Distribution by Affinity Bins
+    # Checks if the model is better at predicting high vs. low affinity.
+    error_df = pd.DataFrame({'true': y_test, 'error': np.abs(residuals)})
+    error_df['affinity_bin'] = pd.cut(error_df['true'], bins=np.arange(0, 1.1, 0.1), right=False)
+    plt.figure(figsize=(12, 7))
+    sns.boxplot(x='affinity_bin', y='error', data=error_df)
+    plt.title('Absolute Prediction Error by True Affinity Bins', fontsize=16, fontweight='bold')
+    plt.xlabel('True Affinity Bin', fontsize=12)
+    plt.ylabel('Absolute Error', fontsize=12)
+    plt.xticks(rotation=45)
+    plt.tight_layout()
+    plt.savefig(os.path.join(plots_dir, 'error_by_affinity_bin.png'), dpi=300)
+    plt.close()
+    print("  - Saved error distribution plot.")
+    
     
     print(f"\n  - All plots and metrics have been saved to the folder: '{plots_dir}'")
     print("\n--- Evaluation and Visualization Complete ---")
