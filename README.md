@@ -251,12 +251,13 @@ If you use this project, code, or methodology in your research, please cite both
 
 Al Marzan, A. (2025). BioSeq-AffinityPredict: A Hybrid Deep Learning Framework for Predicting Molecular Affinity. GitHub. [https://github.com/aamarzan/miRNA-RNA-Deep-Learning-Model](https://www.google.com/url?sa=E&source=gmail&q=https://github.com/aamarzan/miRNA-RNA-Deep-Learning-Model)
 
-````
+```
 
 For academic publications, you can use the following BibTeX entry:
 
 <details>
 <summary>BibTeX Format</summary>
+
 
 ```bibtex
 @misc{AlMarzan2025BioSeqAffinityPredict,
@@ -267,8 +268,13 @@ For academic publications, you can use the following BibTeX entry:
   journal = {GitHub repository},
   howpublished = {\url{[https://github.com/aamarzan/miRNA-RNA-Deep-Learning-Model](https://github.com/aamarzan/miRNA-RNA-Deep-Learning-Model)}},
 }
-````
+```
+</details>
 
+-----
 ## License
 
 This project is licensed under the MIT License. See the [LICENSE](https://www.google.com/search?q=LICENSE) file for details.
+
+
+
