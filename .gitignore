@@ -23,9 +23,6 @@ dataset/
 # Ignore temporary/additional data
 additional/
 
-# Ignore all generated model files and training history
-models/
-
 # Ignore all prediction input files and output results
 prediction/
 
