@@ -241,8 +241,33 @@ For users who wish to perform predictions without a local setup, we have deploye
 
 ## Citing this Work
 
-If you use this model or code in your research, please cite our work.
+If you use this project, code, or methodology in your research, please cite both our manuscript and this GitHub repository.
+
 *(A full citation to our paper will be provided here upon publication.)*
+
+### Citing the Repository
+
+```
+
+Al Marzan, A. (2025). BioSeq-AffinityPredict: A Hybrid Deep Learning Framework for Predicting Molecular Affinity. GitHub. [https://github.com/aamarzan/miRNA-RNA-Deep-Learning-Model](https://www.google.com/url?sa=E&source=gmail&q=https://github.com/aamarzan/miRNA-RNA-Deep-Learning-Model)
+
+````
+
+For academic publications, you can use the following BibTeX entry:
+
+<details>
+<summary>BibTeX Format</summary>
+
+```bibtex
+@misc{AlMarzan2025BioSeqAffinityPredict,
+  author = {Al Marzan, Abdullah},
+  title = {BioSeq-AffinityPredict: A Hybrid Deep Learning Framework for Predicting Molecular Affinity},
+  year = {2025},
+  publisher = {GitHub},
+  journal = {GitHub repository},
+  howpublished = {\url{[https://github.com/aamarzan/miRNA-RNA-Deep-Learning-Model](https://github.com/aamarzan/miRNA-RNA-Deep-Learning-Model)}},
+}
+````
 
 ## License
 
