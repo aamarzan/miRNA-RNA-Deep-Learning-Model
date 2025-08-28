@@ -1,7 +1,3 @@
-Of course. It's crucial for a project of this complexity to have a comprehensive, user-friendly, and up-to-date README. I will rewrite it extensively to reflect all the powerful upgrades and new logic we've implemented.
-
-Here is the updated, in-depth README file.
-
 -----
 
 # BioSeq-AffinityPredict: A Hybrid Deep Learning Framework for Predicting Molecular Affinity
