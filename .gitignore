@@ -28,3 +28,6 @@ logs/
 
 # Ignore RNAfold graphical output
 rna.ps
+
+# Ignore this file
+.gitignore
