@@ -9,7 +9,7 @@ from tensorflow.keras.optimizers import Adam
 from tensorflow.keras.callbacks import (ModelCheckpoint, EarlyStopping, TensorBoard)
 
 # <<< FIX: Import from the correctly named s3_build_model.py script >>>
-from s3_build_model import DataGenerator, create_weighted_mse
+from s3a_build_model import DataGenerator, create_weighted_mse
 
 # --- Configuration Loader ---
 def load_config(config_path=None):
