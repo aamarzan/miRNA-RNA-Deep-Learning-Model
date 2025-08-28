@@ -1,5 +1,3 @@
-
-
 # BioSeq-AffinityPredict: A Hybrid Deep Learning Framework for Predicting Molecular Affinity
 
 [](https://opensource.org/licenses/MIT)
@@ -8,6 +6,16 @@
 [](https://github.com/psf/black)
 
 A research-grade, hybrid deep learning framework for predicting the binding affinity between molecules (e.g., miRNA-RNA), explicitly modeling the competitive effects of other molecules in the system. This framework features a universal feature engineering pipeline that processes RNA, protein, and 3D structural data, making it a powerful and adaptable tool for discovering novel therapeutic candidates.
+
+-----
+
+## Guiding Principles
+
+This project is built on three core principles:
+
+  * **🔬 Biological Realism:** Moving beyond simple predictions to model the complex, competitive nature of the cellular environment.
+  * **⚙️ Scalability:** Engineering a memory-safe, chunk-based pipeline capable of processing massive, terabyte-scale biological datasets.
+  * **🕹️ Reproducibility:** Ensuring that any experiment can be precisely reproduced through a single, centralized configuration file.
 
 -----
 
@@ -23,45 +31,60 @@ This diagram illustrates the complete, end-to-end data processing and modeling p
 
 ```mermaid
 graph TD
+    classDef process fill:#a3d6e8,color:#000,stroke:#333,stroke-width:2px;
+    classDef data fill:#d5f5e3,color:#000,stroke:#333,stroke-width:1px;
+    classDef optional fill:#fdebd0,color:#000,stroke:#888,stroke-width:1px,stroke-dasharray: 5 5;
+
     subgraph "Stage 0: Data & Configuration"
-        A[Raw Data <br> .fasta, .csv] --> C
-        B[config.json <br> Central Control Panel] --> C
+        A[Raw Data <br> .fasta, .csv]:::data
+        B[config.json <br> Central Control Panel]:::data
     end
 
     subgraph "Stage 1: Dataset Generation"
-        C{s1_prepare_dataset.py} -- Processes all molecules --> D(Master Parquet File <br> All combinations)
+        C(s1a_prepare_dataset.py):::process
     end
 
     subgraph "Stage 2: Data Preparation for DL (Chunk-based for Scalability)"
-        D -- For very large datasets --> E{"(Optional) <br> s1b_split_dataset.py"}
-        E -- Splits into parts --> F[Parquet Chunks]
-        D -- For medium datasets --> G
-        F -- Processed chunk by chunk --> G
-        G{s2_prepare_dl_data.py} -- Scales, encodes, pads --> H[Processed .npz Chunks]
-        H -- For very large datasets --> I{"(Optional) <br> s2c_merge_chunks.py"}
-        I -- Merges all chunks --> J
-        H -- For medium datasets --> J
-        J[Final .npz Dataset]
+        D((Master Parquet File)):::data
+        E("(Optional) <br> s1b_split_dataset.py"):::optional
+        F((Parquet Chunks)):::data
+        G(s2a_prepare_dl_data.py):::process
+        H((Processed .npz Chunks)):::data
+        I("(Optional) <br> s2b_merge_chunks.py"):::optional
+        J((Final .npz Dataset)):::data
     end
 
     subgraph "Stage 3 & 5: Training & Evaluation"
-        J --> K{s3_build_model.py}
-        K -- Trains hybrid model --> L[Trained Model <br> in experiments/ folder]
-        M{s5_evaluate.py} -- Uses test data from J --> N[Performance Plots & Metrics]
-        L -- Evaluated by --> M
+        K(s3a_build_model.py):::process
+        L((Trained Model <br> in /experiments)):::data
+        M(s5_evaluate.py):::process
+        N((Performance Plots & Metrics)):::data
     end
 
     subgraph "Stage 4: Prediction"
-        L -- Loaded for inference --> O
-        P[New Unseen Molecules <br> .fasta] --> O{s4_predict.py}
-        O -- Predicts affinity --> Q[Ranked Predictions <br> .parquet]
+        O(s4_predict.py):::process
+        P[New Unseen Molecules <br> .fasta]:::data
+        Q((Ranked Predictions)):::data
     end
 
-    style C fill:#d5f5e3
-    style G fill:#d5f5e3
-    style K fill:#d5f5e3
-    style M fill:#d5f5e3
-    style O fill:#d5f5e3
+    A & B --> C --> D
+
+    D -- For very large datasets --> E
+    E --> F
+    D -- For medium datasets --> G
+    F --> G
+
+    G --> H
+
+    H -- For very large datasets --> I
+    I --> J
+    H -- For medium datasets --> J
+
+    J --> K --> L
+    L --> M
+    J --> M --> N
+
+    L & P --> O --> Q
 ```
 
 -----
@@ -87,27 +110,24 @@ The repository is organized for clarity and reproducibility. Scripts generate th
 ```
 E:/1. miRNA-RNA-Deep-Learning-Model/
 ├── codes/
-│   ├── Version 4/                 # Location of all Python scripts
-│   │   ├── s1_prepare_dataset.py
-│   │   ├── s1b_split_dataset.py
-│   │   ├── s2_prepare_dl_data.py
-│   │   ├── s2c_merge_chunks.py
-│   │   ├── s3_build_model.py
-│   │   ├── s3b_incremental_training.py
-│   │   ├── s4_predict.py
-│   │   └── s5_evaluate.py
-│   └── config.json                # Moved to be with the scripts
+│   └── Version 4/                 # Location of all Python scripts
+│       ├── config.json
+│       ├── molecule_processors.py
+│       ├── s1a_prepare_dataset.py
+│       ├── s1b_split_dataset.py
+│       ├── s2a_prepare_dl_data.py
+│       ├── s2b_merge_chunks.py
+│       ├── s3a_build_model.py
+│       ├── s3b_incremental_training.py
+│       ├── s4_predict.py
+│       └── s5_evaluate.py
+│       └── supportive_scripts/
+│           ├── x1_test_competitors.py
+│           └── ...
 │
 ├── dataset/
 │   ├── raw_data/                  # All raw input data belongs here
-│   │   ├── miRNA_dataset/select/
-│   │   ├── target/select/
-│   │   ├── competitor/select/
-│   │   ├── affinity_score/select/
-│   │   └── ...
 │   ├── pdb_files/                 # Optional: PDB/mmCIF files
-│   │   ├── targets/
-│   │   └── competitors/
 │   ├── prepared_dataset/          # Output of Stage 1
 │   └── processed_for_dl/          # Final output of Stage 2
 │
@@ -118,11 +138,7 @@ E:/1. miRNA-RNA-Deep-Learning-Model/
 │       └── evaluation/
 │
 ├── prediction/                    # For running inference on new molecules
-│   ├── primary_to_rank/
-│   ├── target_to_predict/
-│   └── competitor_to_compare/
 │
-├── .gitignore
 ├── LICENSE
 └── README.md
 ```
@@ -147,10 +163,14 @@ This project requires Python 3.9+ and external bioinformatics tools.
     ```bash
     pip install -r requirements.txt
     ```
-    *(This file should contain `tensorflow`, `pandas`, `pyarrow`, `scikit-learn`, `biopython`, `seaborn`, `natsort`)*
 4.  **Install External Tools:**
-      - **ViennaRNA Package:** Required for `RNAfold`. Please install from the [official website](https://www.tbi.univie.ac.at/RNA/ViennaRNA/doc/html/install.html) and ensure `RNAfold` is in your system's PATH, or provide the full path in `config.json`.
-      - **DSSR:** Required for analyzing 3D structures. Download from the [3DNA Forum](https://www.google.com/search?q=http://forum.x3dna.org/general-discussions/dssr-a-new-standard-in-rna-structure-analysis-and-visualization/) and provide the full path to the executable in `config.json`.
+
+| Tool | Purpose | Installation |
+| :--- | :--- | :--- |
+| **ViennaRNA** | `RNAfold` for 1D/2D structure prediction | Install from the [official website](https://www.tbi.univie.ac.at/RNA/ViennaRNA/doc/html/install.html) |
+| **DSSR** | 3D structure analysis for GNN features | Download from the [3DNA Forum](http://forum.x3dna.org/) |
+
+> **Note:** Ensure both tools are in your system's PATH or provide the full executable paths in `config.json`.
 
 -----
 
@@ -170,17 +190,18 @@ This project requires Python 3.9+ and external bioinformatics tools.
 This workflow is for generating the dataset and training the model.
 
 1.  **Curate Data:** Place all your raw FASTA and score files into the appropriate subdirectories inside `dataset/raw_data/`.
-2.  **Run Stage 1 (Generate Master Dataset):** This script creates the master Parquet file.
+2.  **Run Stage 1 (Generate Master Dataset):**
     ```bash
-    python "codes/Version 4/s1_prepare_dataset.py"
+    python "codes/Version 4/s1a_prepare_dataset.py"
     ```
-3.  **Run Stage 2 (Prepare Data for DL):** This script converts the Parquet file into compressed `.npz` arrays for training. For extremely large datasets, you can optionally use `s1b_split_dataset.py` first, then run `s2_prepare_dl_data.py` on the chunks, and finally merge them with `s2c_merge_chunks.py`.
+3.  **Run Stage 2 (Prepare Data for DL):**
     ```bash
-    python "codes/Version 4/s2_prepare_dl_data.py"
+    python "codes/Version 4/s2a_prepare_dl_data.py"
     ```
-4.  **Run Stage 3 (Train the Model):** This will train the model and save all outputs (model file, logs, history) to the `experiments/<your_experiment_id>/` folder.
+    > For extremely large datasets, see the optional chunking workflow in the diagram above (`s1b` and `s2b` scripts).
+4.  **Run Stage 3 (Train the Model):**
     ```bash
-    python "codes/Version 4/s3_build_model.py"
+    python "codes/Version 4/s3a_build_model.py"
     ```
 
 ### Part B: Using a Pre-Trained Model for Prediction (Quick Start)
@@ -197,15 +218,13 @@ This workflow is for users who want to rank new molecules using an existing mode
     ```
     A ranked list of your primary molecules will be saved as a Parquet file in the `prediction/` folder.
 
-### Evaluating the Model
+-----
 
-To generate performance plots and metrics for a trained model, configure the `evaluation_parameters` in `config.json` and run:
+## Online Prediction Tool
 
-```bash
-python "codes/Version 4/s5_evaluate.py"
-```
+For users who wish to perform predictions without a local setup, we have deployed a user-friendly web interface. This tool provides a quick and accessible way to test candidate miRNAs against specific targets.
 
-Outputs will be saved to a new timestamped folder inside `experiments/<your_experiment_id>/evaluation/`.
+🌐 **Access the web tool here: [https://aamarzan.com/mirna](https://aamarzan.com/mirna)**
 
 -----
 
