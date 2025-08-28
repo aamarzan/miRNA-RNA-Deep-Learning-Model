@@ -1,4 +1,8 @@
+<div align="center">
+
 # BioSeq-AffinityPredict: A Hybrid Deep Learning Framework for Predicting Molecular Affinity
+
+</div>
 
 [](https://opensource.org/licenses/MIT)
 [](https://www.python.org/downloads/)
@@ -20,8 +24,9 @@ This project is built on three core principles:
 -----
 
 ## Abstract
-
+<div align="justify">
 The regulation of gene expression by microRNAs (miRNAs) is a fundamental biological process implicated in numerous diseases. Computational prediction of miRNA-target affinity is critical for identifying therapeutic candidates, yet models often oversimplify the complex cellular environment. This project, **BioSeq-AffinityPredict**, introduces a state-of-the-art hybrid **CNN-LSTM-Attention-GNN** architecture to perform a regression task, predicting a continuous binding affinity score. Critically, our framework features a universal molecule processor that automatically handles RNA and protein sequences, performs reverse translation, and integrates 3D structural data (PDB/mmCIF) to generate graph-based features. This allows for a more nuanced, biologically relevant, and accurate prediction of molecular interactions.
+</div>
 
 -----
 
@@ -91,6 +96,8 @@ graph TD
 
 ## Key Features
 
+<div align="justify">
+ 
   - **🧠 Hybrid Deep Learning Architecture:** Goes beyond simple CNNs to a "Supreme" model fusing **CNNs** (for motif detection), **LSTMs** (for sequential context), **Attention** (for inter-sequence relationships), and **Graph Neural Networks (GNNs)** (for 3D structural information).
   - **🔬 Universal Molecule Processor:** A powerful feature engineering engine (`molecule_processors.py`) that:
       - Auto-detects sequence types (RNA vs. Protein).
@@ -100,6 +107,7 @@ graph TD
   - **🏆 Explicit Competition Modeling:** Uniquely quantifies the inhibitory effect of a competitor molecule on the primary molecule-target interaction by calculating a "competitive effect" score during prediction.
   - **⚙️ Scalable & Memory-Safe Pipeline:** The entire data preparation workflow is designed to handle massive datasets by processing data in chunks using the efficient Apache Parquet and compressed NPZ formats.
   - **🕹️ Centralized Configuration:** A single, comprehensive `config.json` file acts as the control panel for the entire project—from file paths and `experiment_id` to model hyperparameters and prediction settings.
+</div>
 
 -----
 
