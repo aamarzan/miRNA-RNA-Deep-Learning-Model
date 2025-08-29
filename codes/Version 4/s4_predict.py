@@ -109,10 +109,11 @@ def load_fasta_from_folder(folder_path):
     return records
 
 def main():
-    print("--- Universal Molecule Ranking Tool ---")
+    print("--- Universal Molecule Ranking Tool (with Sliding Window Support) ---")
     config = load_config()
     pred_params = config['prediction_parameters']
     train_params = config['training_parameters']
+    proc_params = config.get('processing_parameters', {}) # Get processing params
     
     # --- 1. Setup paths from config ---
     project_root = config['project_root']
@@ -129,17 +130,13 @@ def main():
     
     # --- 2. Load model and scaler ---
     model_path = os.path.join(model_dir, pred_params['model_to_use'])
-    
-    # Define all custom components the model might have
     custom_objects = {}
     if train_params['advanced_training']['use_custom_loss']:
         loss_instance = create_weighted_mse(train_params['advanced_training']['custom_loss_pos_weight'])
         custom_objects['weighted_mse'] = loss_instance
-    # Add all custom layers used by the model so Keras knows how to load them
     custom_objects['PositionalEncoding'] = PositionalEncoding
         
     print("  - Loading model with custom objects...")
-
     try:
         model = tf.keras.models.load_model(model_path, custom_objects=custom_objects)
         scaler = joblib.load(scaler_path)
@@ -158,63 +155,59 @@ def main():
         print("\nAborting: Missing primary sequences or target sequences.")
         return
 
-    # --- 4. Prepare target and competitor data (done once for efficiency) ---
+    # --- 4. Get window size and step size from config ---
+    sw_params = proc_params.get('sliding_window', {})
+    use_sw = sw_params.get('use_sliding_window', False)
+    window_size = sw_params.get('window_size', 500)
+    step_size = sw_params.get('step_size', 250)
+    print(f"\nSliding Window mode is {'ON' if use_sw else 'OFF'}. Window size: {window_size}, Step size: {step_size}")
+
+    # --- 5. Prepare target and competitor data ---
     target_record = target_records[0]
     competitor_record = competitor_records[0] if competitor_records else None
     
-    target_seq = str(target_record.seq).replace('T', 'U')
-    if pred_params.get('use_prediction_region_slice', False):
-        start, end = pred_params['prediction_target_region_slice']
-        target_seq = target_seq[start:end]
-        print(f"  - Slicing target sequence to region [{start}:{end}].")
+    # --- NEW: SLIDING WINDOW LOGIC FOR TARGET ---
+    target_seq_full = str(target_record.seq).replace('T', 'U')
+    target_chunks = []
+    if use_sw and len(target_seq_full) > window_size:
+        for i in range(0, len(target_seq_full) - window_size + 1, step_size):
+            target_chunks.append(target_seq_full[i:i+window_size])
+        print(f"  - Sliced target '{target_record.id}' into {len(target_chunks)} chunks.")
+    else:
+        target_chunks.append(target_seq_full) # Use the whole sequence as a single chunk
 
-    target_processed = process_molecule_universal(((target_record.id, target_seq), config, 'target_molecule'))
+    target_processed_chunks = [process_molecule_universal(((f"{target_record.id}_chunk_{i}", chunk), config, 'target_molecule')) for i, chunk in enumerate(target_chunks)]
+    
     if competitor_record:
         competitor_processed = process_molecule_universal(((competitor_record.id, str(competitor_record.seq)), config, 'competitor_molecule'))
     else:
         competitor_processed = {'sequence': ''}
 
-    print(f"\nUsing Target: {target_record.id}")
-    if competitor_record: print(f"Using Competitor: {competitor_record.id}")
-        
-    print(f"Ranking {len(primary_records)} candidate molecules...")
-    
-    # --- 5. Determine padding lengths using the selected mode from config.json ---
-    if pred_params.get('length_detection_mode', 'auto') == 'auto':
-        print("\n[INFO] Auto-detecting model's required input lengths...")
-        try:
-            model_inputs = model.input
-            model_primary_len = model_inputs['primary_sequence_input'].shape[1]
-            model_target_len = model_inputs['target_sequence_input'].shape[1]
-            model_competitor_len = model_inputs['competitor_sequence_input'].shape[1]
-            pad_lengths = (model_primary_len, model_target_len, model_competitor_len)
-            print(f"  - Model expects lengths -> Primary: {model_primary_len}, Target: {model_target_len}, Competitor: {model_competitor_len}")
-        except Exception as e:
-            print(f"  - WARNING: Auto-detect failed. Falling back to config. Error: {e}")
-            pad_params = train_params.get('sequence_padding', {})
-            pad_lengths = (pad_params.get('max_primary_len', 200),
-                           pad_params.get('max_target_len', 2500),
-                           pad_params.get('max_competitor_len', 2500))
-    else:
-        # Use manual mode, reading directly from the training_parameters
-        print("\n[INFO] Using manual length detection from config.json...")
-        pad_params = train_params.get('sequence_padding', {})
-        pad_lengths = (pad_params.get('max_primary_len'), pad_params.get('max_target_len'), pad_params.get('max_competitor_len'))
-        print(f"  - Using lengths -> Primary: {pad_lengths[0]}, Target: {pad_lengths[1]}, Competitor: {pad_lengths[2]}")
-    
-    # --- 6. Run predictions for all primary molecules ---
-    output_path = os.path.join(prediction_dir, pred_params['output_filename'])
+    # --- 6. Determine padding lengths (model expects fixed size) ---
+    pad_params = train_params.get('sequence_padding', {})
+    pad_lengths = (pad_params.get('max_primary_len'), pad_params.get('max_target_len'), pad_params.get('max_competitor_len'))
+    print(f"  - Model expects padded lengths -> Primary: {pad_lengths[0]}, Target: {pad_lengths[1]}, Competitor: {pad_lengths[2]}")
+
+    # --- 7. Run predictions for all primary molecules ---
     results = []
     model_input_names = list(model.input.keys())
 
     for i, primary_record in enumerate(primary_records):
         primary_processed = process_molecule_universal(((primary_record.id, str(primary_record.seq)), config, 'primary_molecule'))
         
-        inputs_with_comp = prepare_input_for_prediction(primary_processed, target_processed, competitor_processed, scaler, pad_lengths, model_input_names)
-        pred_with_comp = model.predict(inputs_with_comp, verbose=0)[0][0]
+        # --- NEW: Predict against each chunk and aggregate ---
+        scores_with_comp = []
+        scores_no_comp = []
+        for target_chunk_processed in target_processed_chunks:
+            inputs_with_comp = prepare_input_for_prediction(primary_processed, target_chunk_processed, competitor_processed, scaler, pad_lengths, model_input_names)
+            scores_with_comp.append(model.predict(inputs_with_comp, verbose=0)[0][0])
 
-        inputs_no_comp = prepare_input_for_prediction(primary_processed, target_processed, {'sequence': ''}, scaler, pad_lengths, model_input_names)
-        pred_no_comp = model.predict(inputs_no_comp, verbose=0)[0][0]
+            inputs_no_comp = prepare_input_for_prediction(primary_processed, target_chunk_processed, {'sequence': ''}, scaler, pad_lengths, model_input_names)
+            scores_no_comp.append(model.predict(inputs_no_comp, verbose=0)[0][0])
+        
+        # Aggregate by taking the maximum affinity found across all chunks
+        pred_with_comp = max(scores_with_comp) if scores_with_comp else 0.0
+        pred_no_comp = max(scores_no_comp) if scores_no_comp else 0.0
 
         results.append({
             'primary_molecule_id': primary_record.id,
@@ -226,12 +219,12 @@ def main():
 
     print("\n\n--- Prediction Complete ---")
     
-    # --- 7. Save and display results ---
+    # --- 8. Save and display results ---
     if results:
         results_df = pd.DataFrame(results).sort_values(by='competitive_effect (higher_is_better)', ascending=False)
+        output_path = os.path.join(prediction_dir, pred_params['output_filename'])
         pq.write_table(pa.Table.from_pandas(results_df, preserve_index=False), output_path)
         print(f"Ranked results saved to '{output_path}'")
-        
         print("\n--- Top 10 Candidates (Ranked by Competitive Effect) ---")
         print(results_df.head(10).to_string(index=False, float_format='%.4f'))
 

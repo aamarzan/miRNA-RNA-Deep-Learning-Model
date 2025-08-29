@@ -84,6 +84,12 @@ def prepare_dataset(config):
     processed_data = {}
     exp_setup = config['experiment_setup']
     
+    # --- NEW: Get window parameters from config ---
+    sw_params = PARAMS.get('sliding_window', {})
+    use_sw = sw_params.get('use_sliding_window', False)
+    window_size = sw_params.get('window_size', 500)
+    step_size = sw_params.get('step_size', 250)
+
     for role, molecule_type in exp_setup.items():
         role_key = f"{molecule_type.lower()}_{role.replace('_molecule','')}" if 'molecule' in role else molecule_type.lower()
         if role == 'primary_molecule': role_key = molecule_type.lower()
@@ -95,14 +101,32 @@ def prepare_dataset(config):
 
         print(f"  - Processing {role} ({molecule_type})...")
         raw_molecules = data_sources[role_key]
+        
+        # --- NEW: Apply sliding window logic to generate chunks ---
+        processed_molecules = []
+        for mol_id, seq in raw_molecules.items():
+            if use_sw and role == 'target_molecule' and len(seq) > window_size:
+                num_chunks = 0
+                for i in range(0, len(seq) - window_size + 1, step_size):
+                    chunk_seq = seq[i:i + window_size]
+                    chunk_id = f"{mol_id}_chunk_{i}"
+                    processed_molecules.append((chunk_id, chunk_seq))
+                    num_chunks += 1
+                print(f"    - Sliced target {mol_id} (len {len(seq)}) into {num_chunks} chunks of size {window_size}", end='\r')
+            else:
+                # If not using sliding window or sequence is too short, use it as is
+                processed_molecules.append((mol_id, seq))
+        if use_sw: print() # Newline after slicing messages
+        
         processor_func = PROCESSOR_MAP.get(molecule_type)
         if not processor_func: continue
 
         with Pool(processes=cpu_count()) as pool:
-            results = pool.map(processor_func, [((mol_id, seq), PARAMS, role) for mol_id, seq in raw_molecules.items()])
+            # Pass the tuple (id, seq) to the processor
+            results = pool.map(processor_func, [(mol_data, PARAMS, role) for mol_data in processed_molecules])
         
         processed_data[role] = [res for res in results if isinstance(res, dict)]
-        print(f"    - {len(processed_data[role])} molecules passed processing.")
+        print(f"    - {len(processed_data[role])} molecules/chunks passed processing.")
 
     primary_molecules = processed_data.get('primary_molecule', [])
     target_molecules = processed_data.get('target_molecule', [])

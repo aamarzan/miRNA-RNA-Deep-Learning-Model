@@ -41,8 +41,14 @@
         "_comment": "Parameters for Stage 1 (s1_prepare_dataset.py).",
         "enable_pdb_processing": true,
         "focus_on_target_region": false,
-        "target_region_name": "WholeSequence",
-        "target_region_slice": [0, 2500],
+        "target_region_name": "My_ROI",
+        "target_region_slice": [90, 150],
+    "sliding_window": {
+        "use_sliding_window": true,
+        "window_size": 500,
+        "step_size": 250
+    },
+
         "min_mirna_len": 10,
         "max_mirna_len": 200,
         "min_target_len": 20,
@@ -81,7 +87,7 @@
         "sequence_padding": {
             "_comment": "Settings for a 'Model M' (Medium) foundation model.",
             "max_primary_len": 200,
-            "max_target_len": 2500,
+            "max_target_len": 500,
             "max_competitor_len": 2500
         },
         "model_architecture": {
