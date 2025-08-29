@@ -24,7 +24,7 @@ import pyarrow.parquet as pq
 
 # Import our definitive processors and custom objects from other project scripts
 from molecule_processors import process_molecule_universal
-from s3a_build_model import create_weighted_mse, PositionalEncoding
+from s3b_build_model import create_weighted_mse, PositionalEncoding
 
 # Suppress TensorFlow and other warnings for a cleaner output
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'

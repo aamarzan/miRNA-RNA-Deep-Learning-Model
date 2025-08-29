@@ -22,7 +22,7 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 
 # Import our custom components to load the model correctly
-from s3a_build_model import create_weighted_mse, PositionalEncoding
+from s3b_build_model import create_weighted_mse, PositionalEncoding
 
 def load_config(config_path=None):
     """

@@ -7,7 +7,7 @@ import datetime
 from tensorflow.keras.models import load_model
 from tensorflow.keras.optimizers import Adam
 from tensorflow.keras.callbacks import (ModelCheckpoint, EarlyStopping, TensorBoard)
-from s3a_build_model import DataGenerator, create_weighted_mse, PositionalEncoding
+from s3b_build_model import DataGenerator, create_weighted_mse, PositionalEncoding
 
 # <<< FIX: Import from the correctly named s3_build_model.py script >>>
 from s3a_build_model import DataGenerator, create_weighted_mse

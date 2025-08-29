@@ -45,6 +45,43 @@ def load_data_from_fasta(folder_path):
         except Exception: pass
     return data_dict
 
+def run_id_matching_diagnostics(mirna_data, affinity_data):
+    """
+    Cleans complex IDs and provides a detailed report on the match rate between
+    miRNA sequences and affinity scores.
+    """
+    print("\n--- Running ID Matching Diagnostics ---")
+    if not mirna_data or not affinity_data:
+        print("  - Skipping diagnostics: miRNA or affinity data not loaded.")
+        return
+
+    # Normalize keys by stripping whitespace AND taking the first part of the ID
+    # This handles complex headers like '>id extra info'
+    def normalize_id(key):
+        return key.strip().split()[0]
+
+    mirna_ids = {normalize_id(k) for k in mirna_data.keys()}
+    affinity_ids = {normalize_id(k) for k in affinity_data.keys()}
+
+    # Find matches and mismatches using set operations
+    matched_ids = mirna_ids.intersection(affinity_ids)
+    affinity_only_ids = affinity_ids - mirna_ids
+    mirna_only_ids = mirna_ids - affinity_ids
+
+    print(f"Total Unique miRNA IDs from FASTA (normalized): {len(mirna_ids)}")
+    print(f"Total Unique IDs from Affinity File (normalized): {len(affinity_ids)}")
+    print(f"  - Number of Matched IDs: {len(matched_ids)}")
+
+    if affinity_only_ids:
+        print(f"\nWARNING: {len(affinity_only_ids)} IDs are in the Affinity File but NOT in the miRNA FASTA file.")
+        print(f"  (These scores will be ignored. Example IDs: {list(affinity_only_ids)[:5]})")
+    
+    if mirna_only_ids:
+        print(f"\nNOTE: {len(mirna_only_ids)} miRNAs have sequences but NO affinity score.")
+        print(f"  (These will be assigned a default score of 0.0. Example IDs: {list(mirna_only_ids)[:5]})")
+    
+    print("---------------------------------------")
+
 def load_scores(folder_path, id_col, score_col, file_type_name):
     data_dict = {}
     print(f"  Scanning {file_type_name} files in '{folder_path}'...")
@@ -80,6 +117,8 @@ def prepare_dataset(config):
             data_sources[name] = load_data_from_fasta(path)
         elif source_info['type'] == 'score':
             data_sources[name] = load_scores(path, source_info['id_col'], source_info['score_col'], name.capitalize())
+    
+    run_id_matching_diagnostics(data_sources.get('mirna', {}), data_sources.get('affinity', {}))
     
     print("\nStep 2: Pre-processing all molecule types...")
     processed_data = {}
