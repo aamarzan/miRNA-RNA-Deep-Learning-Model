@@ -138,13 +138,49 @@ def prepare_dataset(config):
         return
 
     print("\nStep 3: Augmenting primary molecules with scores...")
+    matched_scores = []
+    unmatched_count = 0
+    total_primary = len(primary_molecules)
+
     for molecule_data in primary_molecules:
         molecule_id = molecule_data['id']
-        molecule_data['affinity'] = data_sources.get('affinity', {}).get(molecule_id, 0.0)
+        
+        # --- Affinity Score Matching ---
+        # Use .get() to safely check for the ID in the affinity dictionary
+        score = data_sources.get('affinity', {}).get(molecule_id)
+        
+        if score is not None:
+            molecule_data['affinity'] = score
+            matched_scores.append(score)
+        else:
+            # If the ID is not found, default to 0.0
+            molecule_data['affinity'] = 0.0
+            unmatched_count += 1
+
+        # --- Conservation Score Matching ---
         mirna_family_match = re.search(r"mir-\d+[a-z]?", molecule_id.lower())
         mirna_family = mirna_family_match.group(0) if mirna_family_match else molecule_id.lower()
         molecule_data['conservation'] = data_sources.get('conservation', {}).get(mirna_family, 0.0)
+
     print("  - Augmentation complete.")
+
+    # --- NEW: Detailed Affinity Matching Report ---
+    print("\n--- Affinity Score Matching Report ---")
+    matched_count = len(matched_scores)
+    print(f"Total Primary Molecules Processed: {total_primary}")
+    print(f"  - Matched with Affinity Score: {matched_count} ({matched_count/total_primary:.2%})")
+    print(f"  - Unmatched (Defaulted to 0.0): {unmatched_count} ({unmatched_count/total_primary:.2%})")
+
+    if matched_scores:
+        scores_arr = np.array(matched_scores)
+        print("\nStatistics for MATCHED Affinity Scores:")
+        print(f"  - Highest Affinity: {np.max(scores_arr):.4f}")
+        print(f"  - Lowest Affinity:  {np.min(scores_arr):.4f}")
+        print(f"  - Mean Affinity:    {np.mean(scores_arr):.4f}")
+        print(f"  - Median Affinity:  {np.median(scores_arr):.4f}")
+        print(f"  - 25th Percentile:  {np.percentile(scores_arr, 25):.4f}")
+        print(f"  - 75th Percentile:  {np.percentile(scores_arr, 75):.4f}")
+    print("--------------------------------------")
 
     print("\nStep 3.5: Preparing final competitor list...")
     null_competitor = {'id': 'NO_COMPETITOR', 'sequence': '', 'original_sequence': '', 'gc_content': 0.0, 'dg': 0.0, 'structure_vector': '[]', 'adjacency_matrix': '[]'}
