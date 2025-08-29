@@ -43,12 +43,11 @@
         "focus_on_target_region": false,
         "target_region_name": "My_ROI",
         "target_region_slice": [90, 150],
-    "sliding_window": {
+        "sliding_window": {
         "use_sliding_window": true,
         "window_size": 500,
         "step_size": 250
-    },
-
+        },
         "min_mirna_len": 10,
         "max_mirna_len": 200,
         "min_target_len": 20,

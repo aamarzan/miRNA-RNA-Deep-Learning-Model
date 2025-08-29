@@ -10,6 +10,7 @@ from multiprocessing import Pool, cpu_count
 import time
 import pyarrow as pa
 import pyarrow.parquet as pq
+import random
 
 # --- Import the new processors library ---
 from molecule_processors import PROCESSOR_MAP
