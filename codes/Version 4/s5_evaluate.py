@@ -114,7 +114,12 @@ def analyze_model_performance():
         return
 
     print("\nStep 2: Evaluating model performance on the test set...")
-    y_pred = model.predict(X_test, batch_size=eval_params.get('prediction_batch_size', 1024), verbose=1).ravel()
+    y_pred_transformed = model.predict(X_test, batch_size=eval_params.get('prediction_batch_size', 1024), verbose=1).ravel()
+
+    # --- NEW: Apply inverse transform (square) to get real affinity scores ---
+    print("  - Applying inverse transform (square) to predictions and test labels...")
+    y_pred = np.square(y_pred_transformed)
+    y_test = np.square(y_test) # The y_test loaded from .npz is also on the sqrt scale
 
     # Calculate metrics
     r2 = r2_score(y_test, y_pred)
