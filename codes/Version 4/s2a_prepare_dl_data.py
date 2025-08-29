@@ -155,12 +155,13 @@ def main():
 
 # --- Step 6: Finalize and Save Arrays ---
     print("\n\nStep 4: Concatenating and saving final compressed .npz arrays...")
-    
+
     # Save training data
     if y_train_batches:
         y_train_final = np.concatenate(y_train_batches)
-        # --- SAVE DIRECTLY TO NPZ ---
-        np.savez_compressed(os.path.join(output_dl_folder, 'y_train.npz'), data=y_train_final)
+        # --- NEW: Apply square root transformation ---
+        y_train_final_transformed = np.sqrt(y_train_final)
+        np.savez_compressed(os.path.join(output_dl_folder, 'y_train.npz'), data=y_train_final_transformed)
         for key in X_train_batches:
             X_train_final = np.concatenate(X_train_batches[key])
             np.savez_compressed(os.path.join(output_dl_folder, f'X_train_{key}.npz'), data=X_train_final)
@@ -169,13 +170,14 @@ def main():
     # Save test data
     if y_test_batches:
         y_test_final = np.concatenate(y_test_batches)
-        # --- SAVE DIRECTLY TO NPZ ---
-        np.savez_compressed(os.path.join(output_dl_folder, 'y_test.npz'), data=y_test_final)
+        # --- NEW: Apply square root transformation ---
+        y_test_final_transformed = np.sqrt(y_test_final)
+        np.savez_compressed(os.path.join(output_dl_folder, 'y_test.npz'), data=y_test_final_transformed)
         for key in X_test_batches:
             X_test_final = np.concatenate(X_test_batches[key])
             np.savez_compressed(os.path.join(output_dl_folder, f'X_test_{key}.npz'), data=X_test_final)
         print(f"  - Saved {len(y_test_final)} test samples.")
-        
+
     end_time = time.time()
     print("\n--- Deep Learning Data Preparation Complete ---")
     print(f"Total time taken: {end_time - start_time:.2f} seconds")

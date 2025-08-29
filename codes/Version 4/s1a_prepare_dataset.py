@@ -146,19 +146,27 @@ def prepare_dataset(config):
         molecule_data['conservation'] = data_sources.get('conservation', {}).get(mirna_family, 0.0)
     print("  - Augmentation complete.")
 
-    print("\nStep 4: Generating and streaming combinations to Parquet...")
-    output_filename = f"Prepared_Dataset_{int(time.time())}.parquet"
-    output_path = os.path.join(PREPARED_DATASET_DIR, output_filename)
-    
+    print("\nStep 3.5: Preparing final competitor list...")
     null_competitor = {'id': 'NO_COMPETITOR', 'sequence': '', 'original_sequence': '', 'gc_content': 0.0, 'dg': 0.0, 'structure_vector': '[]', 'adjacency_matrix': '[]'}
     competitors_augmented = competitor_molecules + [null_competitor]
+    print(f"  - Final competitor list contains {len(competitors_augmented)} entries (including null).")
     
+    print("\nStep 4: Generating and shuffling all combinations (requires significant RAM)...")
+    # This step creates all combinations in memory as a list
+    all_combinations = list(product(primary_molecules, target_molecules, competitors_augmented))
+    # Then, it shuffles the entire list randomly
+    random.shuffle(all_combinations)
+    print(f"  - Generated and shuffled {len(all_combinations)} total combinations.")
+
+    print("\nStep 5: Streaming shuffled combinations to Parquet...")
+    output_filename = f"Prepared_Dataset_{int(time.time())}.parquet"
+    output_path = os.path.join(PREPARED_DATASET_DIR, output_filename)
+
     parquet_writer = None
     batch, total_rows = [], 0
-    
-    combinations = product(primary_molecules, target_molecules, competitors_augmented)
 
-    for primary_data, target_data, competitor_data in combinations:
+    # This now iterates over the pre-shuffled list
+    for primary_data, target_data, competitor_data in all_combinations:
         row = {
             'primary_id': primary_data.get('id'), 'primary_sequence': primary_data.get('sequence'),
             'gc_content': primary_data.get('gc_content'), 'dg': primary_data.get('dg'),

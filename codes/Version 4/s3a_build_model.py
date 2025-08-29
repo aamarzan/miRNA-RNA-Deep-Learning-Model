@@ -21,6 +21,7 @@ from tensorflow.keras.layers import (Input, Conv1D, Dense, Dropout, BatchNormali
 from tensorflow.keras.models import Model
 from tensorflow.keras.optimizers import Adam
 from tensorflow.keras.callbacks import (ModelCheckpoint, EarlyStopping, ReduceLROnPlateau, TensorBoard)
+from tensorflow.keras.regularizers import l2
 import datetime
 import time
 from spektral.layers import GCSConv
@@ -219,10 +220,10 @@ def build_supreme_model(input_shapes, params):
     combined = concatenate(features_to_combine)
     combined = Dropout(params['dropout_rate'])(combined)
     
-    x = Dense(256, activation='relu')(combined)
+    x = Dense(256, activation='relu', kernel_regularizer=l2(0.001))(combined)
     x = BatchNormalization()(x)
     x = Dropout(params['dropout_rate'])(x)
-    x = Dense(128, activation='relu')(x)
+    x = Dense(128, activation='relu', kernel_regularizer=l2(0.001))(x)
     output = Dense(1, activation='sigmoid', name='affinity_output')(x)
 
     model = Model(inputs=input_layers, outputs=output)

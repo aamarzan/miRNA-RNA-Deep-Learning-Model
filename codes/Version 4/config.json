@@ -123,6 +123,7 @@
     },
     "incremental_training": {
         "_comment": "Parameters for Stage 3b (s3b_incremental_training.py).",
+        "experiment_to_load_from": "exp_001_initial_run",
         "new_data_subfolder": "processed_for_dl_zika",
         "existing_model_name": "best_supreme_model.keras",
         "new_model_name": "best_supreme_model_zika_tuned.keras",

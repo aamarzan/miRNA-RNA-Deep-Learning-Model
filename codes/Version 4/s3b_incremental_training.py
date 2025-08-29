@@ -7,6 +7,7 @@ import datetime
 from tensorflow.keras.models import load_model
 from tensorflow.keras.optimizers import Adam
 from tensorflow.keras.callbacks import (ModelCheckpoint, EarlyStopping, TensorBoard)
+from s3a_build_model import DataGenerator, create_weighted_mse, PositionalEncoding
 
 # <<< FIX: Import from the correctly named s3_build_model.py script >>>
 from s3a_build_model import DataGenerator, create_weighted_mse
@@ -37,20 +38,40 @@ if __name__ == "__main__":
     train_params = config['training_parameters']
     
     project_root = config['project_root']
-    model_save_dir = os.path.join(project_root, config['output_folders']['main_models_folder'])
-    logs_dir = os.path.join(project_root, config['output_folders']['logs_subfolder'])
     
+    # --- FIX: Point to the correct experiment folder for loading ---
+    experiment_to_load_from = inc_params.get('experiment_to_load_from')
+    if not experiment_to_load_from:
+        print("FATAL: 'experiment_to_load_from' not set in incremental_training config.")
+        exit()
+    
+    # Path to the existing model inside its experiment folder
+    source_experiment_dir = os.path.join(project_root, 'experiments', experiment_to_load_from)
+    existing_model_dir = os.path.join(source_experiment_dir, config['output_folders']['main_models_folder'])
+    existing_model_path = os.path.join(existing_model_dir, inc_params['existing_model_name'])
+
+    # Path to the new data
     new_data_path = os.path.join(project_root, config['data_folders']['main_dataset_folder'], inc_params['new_data_subfolder'])
-    existing_model_path = os.path.join(model_save_dir, inc_params['existing_model_name'])
+    
+    # Path where the new, fine-tuned model will be saved
+    # Note: It saves into the *current* experiment_id's folder
+    current_experiment_id = config.get('experiment_id', 'default_run')
+    output_experiment_dir = os.path.join(project_root, 'experiments', current_experiment_id)
+    new_model_save_dir = os.path.join(output_experiment_dir, config['output_folders']['main_models_folder'])
+    logs_dir = os.path.join(output_experiment_dir, config['output_folders']['logs_subfolder'])
+    os.makedirs(new_model_save_dir, exist_ok=True)
 
     # --- Step 2: Load the PREVIOUSLY trained model ---
     print(f"--- Starting Incremental Training ---")
     print(f"Loading existing model from: {existing_model_path}")
     
-    custom_objects = {}
+    # --- FIX: Add PositionalEncoding to the custom_objects dictionary ---
+    custom_objects = {
+        'PositionalEncoding': PositionalEncoding
+    }
     if train_params['advanced_training']['use_custom_loss']:
         loss_func_instance = create_weighted_mse(train_params['advanced_training']['custom_loss_pos_weight'])
-        custom_objects = {'weighted_mse': loss_func_instance}
+        custom_objects['weighted_mse'] = loss_func_instance
         print("  - Custom loss function 'weighted_mse' will be used for loading.")
 
     try:
@@ -90,7 +111,7 @@ if __name__ == "__main__":
     model.summary()
 
     # --- Step 5: Set up new callbacks ---
-    new_model_filepath = os.path.join(model_save_dir, inc_params['new_model_name'])
+    new_model_filepath = os.path.join(new_model_save_dir, inc_params['new_model_name'])
     log_dir = os.path.join(logs_dir, "fit", f"incremental_{datetime.datetime.now().strftime('%Y%m%d-%H%M%S')}")
     callbacks = [
         ModelCheckpoint(filepath=new_model_filepath, save_best_only=True, monitor='val_loss', mode='min', verbose=1),
