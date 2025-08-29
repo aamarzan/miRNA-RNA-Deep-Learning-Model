@@ -119,7 +119,9 @@ def main():
         return X, y
 
     # Use iter_batches for memory efficiency
-    batch_iterator = parquet_file.iter_batches(batch_size=params.get('batch_size', 10000))
+    # Reads the batch size from the data_processing section of the config
+    dp_params = config.get('data_processing', {})
+    batch_iterator = parquet_file.iter_batches(batch_size=dp_params.get('batch_size_parquet', 1000))
     
     # Use lists to accumulate results before saving
     X_train_batches, y_train_batches = {key: [] for key in process_chunk(next(batch_iterator).to_pandas(), scaler)[0]}, []
