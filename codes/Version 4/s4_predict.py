@@ -206,8 +206,12 @@ def main():
             scores_no_comp.append(model.predict(inputs_no_comp, verbose=0)[0][0])
         
         # Aggregate by taking the maximum affinity found across all chunks
-        pred_with_comp = max(scores_with_comp) if scores_with_comp else 0.0
-        pred_no_comp = max(scores_no_comp) if scores_no_comp else 0.0
+        best_score_with_comp_transformed = max(scores_with_comp) if scores_with_comp else 0.0
+        best_score_no_comp_transformed = max(scores_no_comp) if scores_no_comp else 0.0
+
+        # --- NEW: Apply inverse transform (square) to get the real affinity score ---
+        pred_with_comp = np.square(best_score_with_comp_transformed)
+        pred_no_comp = np.square(best_score_no_comp_transformed)
 
         results.append({
             'primary_molecule_id': primary_record.id,
