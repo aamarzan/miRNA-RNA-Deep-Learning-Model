@@ -15,7 +15,7 @@ import zipfile
 TARGET_DIR = "E:/1. miRNA-RNA-Deep-Learning-Model/dataset/pdb_files/targets"
 
 # 2. Set to True to automatically delete .zip files after successful extraction.
-DELETE_ZIPS_AFTER_EXTRACTION = True
+DELETE_ZIPS_AFTER_EXTRACTION = False
 # --- END OF CONFIGURATION ---
 
 
