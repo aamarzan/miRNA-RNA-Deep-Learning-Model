@@ -176,71 +176,71 @@ def prepare_dataset(config):
         print("\nCRITICAL ERROR: No primary or target molecules remained after processing. Halting.")
         return
 
-    print("\nStep 3: Augmenting primary molecules with scores...")
-    matched_scores = []
-    unmatched_count = 0
-    total_primary = len(primary_molecules)
+    print("\nStep 3: Separating Known vs. Unknown Primary Molecules...")
+    known_primary_molecules = []
+    unknown_primary_molecules = []
 
     for molecule_data in primary_molecules:
         molecule_id = molecule_data['id']
-        
-        # --- Affinity Score Matching ---
-        # Use .get() to safely check for the ID in the affinity dictionary
-        score = data_sources.get('affinity', {}).get(molecule_id)
-        
-        if score is not None:
-            molecule_data['affinity'] = score
-            matched_scores.append(score)
+        # Check if a score exists for this molecule
+        if data_sources.get('affinity', {}).get(molecule_id) is not None:
+            known_primary_molecules.append(molecule_data)
         else:
-            # If the ID is not found, default to 0.0
-            molecule_data['affinity'] = 0.0
-            unmatched_count += 1
+            unknown_primary_molecules.append(molecule_data)
+            
+    print(f"  - Found {len(known_primary_molecules)} molecules with known affinity scores.")
+    print(f"  - Found {len(unknown_primary_molecules)} molecules with unknown affinity (will be down-sampled).")
 
-        # --- Conservation Score Matching ---
-        mirna_family_match = re.search(r"mir-\d+[a-z]?", molecule_id.lower())
-        mirna_family = mirna_family_match.group(0) if mirna_family_match else molecule_id.lower()
-        molecule_data['conservation'] = data_sources.get('conservation', {}).get(mirna_family, 0.0)
+    # --- NEW: Down-sampling the Unknowns ---
+    # We will keep a ratio of 2 unknown examples for every 1 known example.
+    # This is a good starting point to provide negative context without overwhelming the model.
+    num_known = len(known_primary_molecules)
+    num_unknown_to_keep = min(len(unknown_primary_molecules), num_known * 2) # e.g., 2x ratio
+
+    print(f"\nDown-sampling unknowns from {len(unknown_primary_molecules)} to {num_unknown_to_keep}...")
+    
+    # Randomly sample the unknowns
+    unknown_subsample = random.sample(unknown_primary_molecules, num_unknown_to_keep)
+    
+    # Recombine into a new, balanced list of primary molecules
+    balanced_primary_molecules = known_primary_molecules + unknown_subsample
+    random.shuffle(balanced_primary_molecules) # Shuffle the final list
+    
+    print(f"  - Created a balanced primary molecule set of {len(balanced_primary_molecules)} total entries.")
+
+    print("\nStep 4: Augmenting the Balanced Dataset with Scores")
+
+    for molecule_data in balanced_primary_molecules:
+        molecule_id = molecule_data['id']
+        
+        # Assign affinity (will be 0.0 for the subsampled unknowns)
+        molecule_data['affinity'] = data_sources.get('affinity', {}).get(molecule_id, 0.0)
+        
+        # Assign conservation and family ID
+        mirna_family_match = re.search(r"hsa-mir-\d+[a-z]?", molecule_id.lower())
+        mirna_family_name = mirna_family_match.group(0) if mirna_family_match else molecule_id.lower()
+        molecule_data['conservation'] = data_sources.get('conservation', {}).get(mirna_family_name, 0.0)
 
     print("  - Augmentation complete.")
 
-    # --- NEW: Detailed Affinity Matching Report ---
-    print("\n--- Affinity Score Matching Report ---")
-    matched_count = len(matched_scores)
-    print(f"Total Primary Molecules Processed: {total_primary}")
-    print(f"  - Matched with Affinity Score: {matched_count} ({matched_count/total_primary:.2%})")
-    print(f"  - Unmatched (Defaulted to 0.0): {unmatched_count} ({unmatched_count/total_primary:.2%})")
-
-    if matched_scores:
-        scores_arr = np.array(matched_scores)
-        print("\nStatistics for MATCHED Affinity Scores:")
-        print(f"  - Highest Affinity: {np.max(scores_arr):.4f}")
-        print(f"  - Lowest Affinity:  {np.min(scores_arr):.4f}")
-        print(f"  - Mean Affinity:    {np.mean(scores_arr):.4f}")
-        print(f"  - Median Affinity:  {np.median(scores_arr):.4f}")
-        print(f"  - 25th Percentile:  {np.percentile(scores_arr, 25):.4f}")
-        print(f"  - 75th Percentile:  {np.percentile(scores_arr, 75):.4f}")
-    print("--------------------------------------")
-
-    print("\nStep 3.5: Preparing final competitor list...")
+    print("\nStep 5: Preparing Final Competitor List...")
     null_competitor = {'id': 'NO_COMPETITOR', 'sequence': '', 'original_sequence': '', 'gc_content': 0.0, 'dg': 0.0, 'structure_vector': '[]', 'adjacency_matrix': '[]'}
     competitors_augmented = competitor_molecules + [null_competitor]
     print(f"  - Final competitor list contains {len(competitors_augmented)} entries (including null).")
-    
-    print("\nStep 4: Generating and shuffling all combinations (requires significant RAM)...")
-    # This step creates all combinations in memory as a list
-    all_combinations = list(product(primary_molecules, target_molecules, competitors_augmented))
-    # Then, it shuffles the entire list randomly
+
+    print("\nStep 6: Generating and Shuffling Combinations...")
+    # This list is now much smaller and will not cause a memory error
+    all_combinations = list(product(balanced_primary_molecules, target_molecules, competitors_augmented))
     random.shuffle(all_combinations)
     print(f"  - Generated and shuffled {len(all_combinations)} total combinations.")
 
-    print("\nStep 5: Streaming shuffled combinations to Parquet...")
+    print("\nStep 7: Streaming Shuffled Combinations to Parquet...")
     output_filename = f"Prepared_Dataset_{int(time.time())}.parquet"
     output_path = os.path.join(PREPARED_DATASET_DIR, output_filename)
-
+    
     parquet_writer = None
     batch, total_rows = [], 0
-
-    # This now iterates over the pre-shuffled list
+    
     for primary_data, target_data, competitor_data in all_combinations:
         row = {
             'primary_id': primary_data.get('id'), 'primary_sequence': primary_data.get('sequence'),
