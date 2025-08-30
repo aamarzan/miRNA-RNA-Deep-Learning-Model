@@ -191,13 +191,12 @@ def prepare_dataset(config):
     print(f"  - Found {len(known_primary_molecules)} molecules with known affinity scores.")
     print(f"  - Found {len(unknown_primary_molecules)} molecules with unknown affinity (will be down-sampled).")
 
-    # --- NEW: Down-sampling the Unknowns ---
-    # We will keep a ratio of 2 unknown examples for every 1 known example.
-    # This is a good starting point to provide negative context without overwhelming the model.
+    # --- NEW: Down-sampling the Unknowns using a configurable ratio ---
+    ratio = PARAMS.get('downsampling_ratio_unknown_to_known', 2.0) # Default to 2.0 if not in config
     num_known = len(known_primary_molecules)
-    num_unknown_to_keep = min(len(unknown_primary_molecules), num_known * 2) # e.g., 2x ratio
+    num_unknown_to_keep = min(len(unknown_primary_molecules), int(num_known * ratio))
 
-    print(f"\nDown-sampling unknowns from {len(unknown_primary_molecules)} to {num_unknown_to_keep}...")
+    print(f"\nDown-sampling unknowns from {len(unknown_primary_molecules)} to {num_unknown_to_keep} (Known:Unknown Ratio ≈ 1:{ratio})...")
     
     # Randomly sample the unknowns
     unknown_subsample = random.sample(unknown_primary_molecules, num_unknown_to_keep)

@@ -30,8 +30,7 @@ def check_path(path, description, is_file=False):
 
 def run_id_matching_diagnostics(mirna_folder, affinity_folder, affinity_cols):
     """
-    Performs a comprehensive ID matching check across ALL files in the
-    miRNA and affinity source folders.
+    Performs a comprehensive ID matching check and intelligently finds the ID column.
     """
     print("\n--- Running Comprehensive ID Matching Diagnostics ---")
     try:
@@ -58,8 +57,26 @@ def run_id_matching_diagnostics(mirna_folder, affinity_folder, affinity_cols):
         for filename in affinity_files:
             filepath = os.path.join(affinity_folder, filename)
             sep = '\t' if filepath.lower().endswith(('.tsv', '.txt')) else ','
-            df = pd.read_csv(filepath, sep=sep, comment='#', usecols=[affinity_cols['id_col']], low_memory=False)
-            affinity_ids.update({normalize_id(val) for val in df[affinity_cols['id_col']].dropna()})
+            
+            # Intelligently find the ID column
+            df = pd.read_csv(filepath, sep=sep, comment='#', low_memory=False)
+            id_col_expected = affinity_cols['id_col']
+            id_col_found = None
+            
+            if id_col_expected in df.columns:
+                id_col_found = id_col_expected
+            else:
+                alternatives = ['miRNA', 'miRNA_ID', 'miRTarBase ID']
+                for alt in alternatives:
+                    if alt in df.columns:
+                        id_col_found = alt
+                        print(f"  - ⚠️ INFO: Expected ID column '{id_col_expected}' not found. Using alternative '{id_col_found}' instead.")
+                        break
+            
+            if not id_col_found:
+                raise ValueError(f"Could not find the required ID column '{id_col_expected}' or any known alternatives in {filename}.")
+
+            affinity_ids.update({normalize_id(val) for val in df[id_col_found].dropna()})
 
         print("\n--- Sample IDs Found ---")
         print(f"Sample IDs from all miRNA FASTA files combined:")
@@ -82,7 +99,7 @@ def run_id_matching_diagnostics(mirna_folder, affinity_folder, affinity_cols):
 
 def run_affinity_statistics_diagnostics(affinity_folder, affinity_cols):
     """
-    Loads all affinity files, combines them, and prints a statistical summary.
+    Loads all affinity files, intelligently finds the score column, and prints a summary.
     """
     print("\n--- Running Affinity Score Statistical Diagnostics ---")
     try:
@@ -91,17 +108,36 @@ def run_affinity_statistics_diagnostics(affinity_folder, affinity_cols):
         affinity_files = [f for f in os.listdir(affinity_folder) if f.lower().endswith(score_extensions)]
         if not affinity_files: raise FileNotFoundError("No score files found.")
 
+        score_col_found_overall = None
         for filename in affinity_files:
             filepath = os.path.join(affinity_folder, filename)
             sep = '\t' if filepath.lower().endswith(('.tsv', '.txt')) else ','
-            df = pd.read_csv(filepath, sep=sep, comment='#', usecols=[affinity_cols['score_col']], low_memory=False)
-            all_dfs.append(df)
+
+            # Intelligently find the score column
+            df = pd.read_csv(filepath, sep=sep, comment='#', low_memory=False)
+            score_col_expected = affinity_cols['score_col']
+            score_col_found = None
+
+            if score_col_expected in df.columns:
+                score_col_found = score_col_expected
+            else:
+                alternatives = ['microt_score', 'Affinity', 'Score']
+                for alt in alternatives:
+                    if alt in df.columns:
+                        score_col_found = alt
+                        print(f"  - ⚠️ INFO: Expected score column '{score_col_expected}' not found. Using alternative '{score_col_found}' instead.")
+                        break
+            
+            if not score_col_found:
+                raise ValueError(f"Could not find the required score column '{score_col_expected}' or any known alternatives in {filename}.")
+
+            all_dfs.append(df[[score_col_found]])
+            score_col_found_overall = score_col_found # Store the name of the column we found
         
         final_df = pd.concat(all_dfs, ignore_index=True)
-        score_col = affinity_cols['score_col']
-
-        print(f"Statistics for '{score_col}' column across all {len(affinity_files)} files:")
-        print(final_df[score_col].describe().to_string())
+        
+        print(f"Statistics for '{score_col_found_overall}' column across all {len(affinity_files)} files:")
+        print(final_df[score_col_found_overall].describe().to_string())
 
     except Exception as e:
         print(f"  - ❌ ERROR during statistics check: {e}")
