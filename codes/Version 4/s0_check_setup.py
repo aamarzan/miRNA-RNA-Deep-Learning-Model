@@ -1,4 +1,9 @@
-# s0_check_setup.py (Updated to read all FASTA files)
+# s0_check_setup.py
+# PURPOSE:
+# A fast-running diagnostic script to validate project setup before launching
+# the time-consuming s1a_prepare_dataset.py script. It checks for common
+# errors in file paths, data availability, ID matching, and config logic.
+#
 import os
 import json
 import pandas as pd
@@ -44,7 +49,7 @@ def run_id_matching_diagnostics(mirna_folder, affinity_folder, affinity_cols):
             for record in SeqIO.parse(filepath, "fasta"):
                 mirna_ids.add(normalize_id(record.id))
         
-        # --- FIX: Load IDs from ALL score files in the affinity folder ---
+        # Load IDs from ALL score files in the affinity folder
         affinity_ids = set()
         score_extensions = ('.csv', '.tsv', '.txt')
         affinity_files = [f for f in os.listdir(affinity_folder) if f.lower().endswith(score_extensions)]
@@ -75,6 +80,33 @@ def run_id_matching_diagnostics(mirna_folder, affinity_folder, affinity_cols):
     except Exception as e:
         print(f"  - ❌ ERROR during ID check: {e}")
 
+def run_affinity_statistics_diagnostics(affinity_folder, affinity_cols):
+    """
+    Loads all affinity files, combines them, and prints a statistical summary.
+    """
+    print("\n--- Running Affinity Score Statistical Diagnostics ---")
+    try:
+        all_dfs = []
+        score_extensions = ('.csv', '.tsv', '.txt')
+        affinity_files = [f for f in os.listdir(affinity_folder) if f.lower().endswith(score_extensions)]
+        if not affinity_files: raise FileNotFoundError("No score files found.")
+
+        for filename in affinity_files:
+            filepath = os.path.join(affinity_folder, filename)
+            sep = '\t' if filepath.lower().endswith(('.tsv', '.txt')) else ','
+            df = pd.read_csv(filepath, sep=sep, comment='#', usecols=[affinity_cols['score_col']], low_memory=False)
+            all_dfs.append(df)
+        
+        final_df = pd.concat(all_dfs, ignore_index=True)
+        score_col = affinity_cols['score_col']
+
+        print(f"Statistics for '{score_col}' column across all {len(affinity_files)} files:")
+        print(final_df[score_col].describe().to_string())
+
+    except Exception as e:
+        print(f"  - ❌ ERROR during statistics check: {e}")
+
+
 def main():
     """Runs a series of fast checks on the project setup."""
     print("--- Starting Project Setup Diagnostic Script ---\n")
@@ -96,11 +128,13 @@ def main():
         path = os.path.join(raw_data_folder, source_info['folder'])
         check_path(path, f"Source folder for '{name}'")
         
-    # 2. Perform Comprehensive ID Matching Diagnostics
+    # 2. Perform Diagnostics on Data Files
     mirna_folder = os.path.join(raw_data_folder, config['data_sources']['mirna']['folder'])
     affinity_folder = os.path.join(raw_data_folder, config['data_sources']['affinity']['folder'])
     affinity_cols = config['data_sources']['affinity']
+    
     run_id_matching_diagnostics(mirna_folder, affinity_folder, affinity_cols)
+    run_affinity_statistics_diagnostics(affinity_folder, affinity_cols)
         
     # 3. Check Config Logic
     print("\n--- Checking Config File Logic ---")
