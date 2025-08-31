@@ -1,74 +1,69 @@
-# unzip_and_rename_pdbs.py
+# decompress_and_rename_pdbs.py
 # PURPOSE:
-# A utility script to recursively find and process all .zip archives in a
-# target directory. It extracts only the PDB files (with .ent extension)
-# and then renames all extracted .ent files to the standard .pdb extension.
-# It also handles zip files found inside other zip files.
+# A utility script to recursively find and decompress all .gz files in a
+# target directory. It then renames all resulting .ent files to the
+# standard .pdb extension.
 
 import os
 import glob
-import zipfile
+import gzip
+import shutil
 
 # --- ⚙️ USER CONFIGURATION ---
 # 1. Set this to the absolute path of the directory you want to process.
-#    This can be your 'targets' or 'competitors' folder.
 TARGET_DIR = "E:/1. miRNA-RNA-Deep-Learning-Model/dataset/pdb_files/targets"
 
-# 2. Set to True to automatically delete .zip files after successful extraction.
-DELETE_ZIPS_AFTER_EXTRACTION = False
+# 2. Set to True to automatically delete .gz files after successful decompression.
+DELETE_GZ_AFTER_DECOMPRESSION = True
 # --- END OF CONFIGURATION ---
 
 
 def process_directory():
     """
-    Main function to find, extract, and rename PDB files.
+    Main function to find, decompress .gz files, and rename .ent files.
     """
-    print(f"--- Starting PDB Unzip and Rename Process ---")
+    print(f"--- Starting PDB Decompress and Rename Process ---")
     print(f"Target Directory: {TARGET_DIR}\n")
 
     if not os.path.isdir(TARGET_DIR):
         print(f"❌ ERROR: Target directory not found at '{TARGET_DIR}'")
         return
 
-    # --- Step 1: Recursively Unzip All Archives ---
-    # This loop continues as long as it finds new .zip files to process,
-    # which handles the case of zip files inside other zip files.
+    # --- Step 1: Recursively Decompress All .gz Archives ---
+    # This loop continues as long as it finds new .gz files to process.
+    pass_num = 1
     while True:
-        # Find all .zip files in the target directory
-        zip_files_to_process = glob.glob(os.path.join(TARGET_DIR, "*.zip"))
+        # Find all .gz files in the target directory
+        gz_files_to_process = glob.glob(os.path.join(TARGET_DIR, "*.gz"))
 
-        if not zip_files_to_process:
-            print("  - No more .zip files found to process.")
+        if not gz_files_to_process:
+            if pass_num == 1:
+                print("  - No .gz files found to decompress.")
+            else:
+                print("  - No more .gz files found to process.")
             break # Exit the loop if there are no zips left
 
-        print(f"Found {len(zip_files_to_process)} zip file(s) in this pass...")
+        print(f"--- Pass {pass_num}: Found {len(gz_files_to_process)} .gz file(s) ---")
 
-        for zip_path in zip_files_to_process:
-            filename = os.path.basename(zip_path)
-            print(f"  - Processing archive: '{filename}'")
+        for gz_path in gz_files_to_process:
+            filename = os.path.basename(gz_path)
+            # Determine the output path by removing the .gz extension
+            output_path = os.path.splitext(gz_path)[0]
+            
+            print(f"  - Decompressing: '{filename}' -> '{os.path.basename(output_path)}'")
             try:
-                with zipfile.ZipFile(zip_path, 'r') as archive:
-                    # Find all members that are .ent files or nested .zip files
-                    members_to_extract = [
-                        member for member in archive.namelist()
-                        if member.lower().endswith('.ent') or member.lower().endswith('.zip')
-                    ]
+                with gzip.open(gz_path, 'rb') as f_in:
+                    with open(output_path, 'wb') as f_out:
+                        shutil.copyfileobj(f_in, f_out)
 
-                    if members_to_extract:
-                        print(f"    - Found {len(members_to_extract)} relevant file(s) to extract.")
-                        archive.extractall(path=TARGET_DIR, members=members_to_extract)
-                    else:
-                        print(f"    - No .ent or nested .zip files found in this archive.")
-
-                # Optionally, delete the zip file after processing
-                if DELETE_ZIPS_AFTER_EXTRACTION:
-                    os.remove(zip_path)
+                # Optionally, delete the .gz file after processing
+                if DELETE_GZ_AFTER_DECOMPRESSION:
+                    os.remove(gz_path)
                     print(f"    - Deleted archive: '{filename}'")
 
-            except zipfile.BadZipFile:
-                print(f"    - ⚠️ WARNING: Skipping corrupted or invalid zip file: '{filename}'")
             except Exception as e:
                 print(f"    - ❌ ERROR processing '{filename}': {e}")
+        pass_num += 1
     
     # --- Step 2: Rename all .ent files to .pdb ---
     print("\n--- Renaming .ent files to .pdb ---")
@@ -82,6 +77,12 @@ def process_directory():
             try:
                 base_name = os.path.splitext(ent_path)[0]
                 pdb_path = base_name + ".pdb"
+                
+                # Check if a file with the .pdb name already exists to avoid errors
+                if os.path.exists(pdb_path):
+                    print(f"  - ⚠️ WARNING: '{os.path.basename(pdb_path)}' already exists. Skipping rename for '{os.path.basename(ent_path)}'.")
+                    continue
+                    
                 os.rename(ent_path, pdb_path)
                 renamed_count += 1
             except Exception as e:
