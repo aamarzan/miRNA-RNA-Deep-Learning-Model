@@ -4,29 +4,44 @@
 
 </div>
 
-[](https://opensource.org/licenses/MIT)
-[](https://www.python.org/downloads/)
-[](https://www.tensorflow.org/)
-[](https://github.com/psf/black)
+<p align="center">
+  <a href="https://opensource.org/licenses/MIT"><img src="https://img.shields.io/badge/License-MIT-yellow.svg" alt="License: MIT"></a>
+  <a href="https://www.python.org/downloads/"><img src="https://img.shields.io/badge/python-3.9+-blue.svg" alt="Python Version"></a>
+  <a href="https://www.tensorflow.org/"><img src="https://img.shields.io/badge/TensorFlow-2.x-FF6F00.svg" alt="Framework: TensorFlow"></a>
+  <a href="https://github.com/psf/black"><img src="https://img.shields.io/badge/code%20style-black-000000.svg" alt="Code style: black"></a>
+</p>
 
 A research-grade, hybrid deep learning framework for predicting the binding affinity between molecules (e.g., miRNA-RNA), explicitly modeling the competitive effects of other molecules in the system. This framework features a universal feature engineering pipeline that processes RNA, protein, and 3D structural data, making it a powerful and adaptable tool for discovering novel therapeutic candidates.
 
------
+---
+### Table of Contents
+* [Guiding Principles](#guiding-principles)
+* [Abstract](#abstract)
+* [Project Workflow](#project-workflow)
+* [Key Features](#key-features)
+* [Project Structure](#project-structure)
+* [Installation](#installation)
+* [End-to-End Workflow](#end-to-end-workflow)
+* [Model Limitations & Future Work](#model-limitations--future-work)
+* [Online Prediction Tool](#online-prediction-tool)
+* [Citing this Work](#citing-this-work)
+
+---
 
 ## Guiding Principles
 
 This project is built on three core principles:
 
-  * **🔬 Biological Realism:** Moving beyond simple predictions to model the complex, competitive nature of the cellular environment.
-  * **⚙️ Scalability:** Engineering a memory-safe, chunk-based pipeline capable of processing massive, terabyte-scale biological datasets.
-  * **🕹️ Reproducibility:** Ensuring that any experiment can be precisely reproduced through a single, centralized configuration file.
+* **🔬 Biological Realism:** Moving beyond simple predictions to model the complex, competitive nature of the cellular environment.
+* **⚙️ Scalability:** Engineering a memory-safe, chunk-based pipeline capable of processing massive, terabyte-scale biological datasets.
+* **🕹️ Reproducibility:** Ensuring that any experiment can be precisely reproduced through a single, centralized configuration file.
 
------
+---
 
 ## Abstract
-<div align="justify">
+
 The regulation of gene expression by microRNAs (miRNAs) is a fundamental biological process implicated in numerous diseases. Computational prediction of miRNA-target affinity is critical for identifying therapeutic candidates, yet models often oversimplify the complex cellular environment. This project, **BioSeq-AffinityPredict**, introduces a state-of-the-art hybrid **CNN-LSTM-Attention-GNN** architecture to perform a regression task, predicting a continuous binding affinity score. Critically, our framework features a universal molecule processor that automatically handles RNA and protein sequences, performs reverse translation, and integrates 3D structural data (PDB/mmCIF) to generate graph-based features. This allows for a more nuanced, biologically relevant, and accurate prediction of molecular interactions.
-</div>
+
 
 -----
 
@@ -124,44 +139,37 @@ The repository is organized for clarity and reproducibility. Scripts generate th
 
 ```
 
-E:/1. miRNA-RNA-Deep-Learning-Model/
+/
 ├── codes/
-│   └── Version 4/                 \# Location of all Python scripts
-│       ├── config.json
-│       └── ... (s1a, s2a, etc.)
+│   └── Version 4/
+│       ├── config.json                     # Main configuration file
+│       ├── molecule_processors.py          # Feature engineering engine
+│       ├── s0_final_setup_check.py         # Pre-flight diagnostic script
+│       ├── s1a_prepare_dataset.py          # Master dataset creation
+│       ├── s1b_split_dataset.py            # (Optional) Utility to split dataset
+│       ├── s2a_prepare_dl_data.py          # Conversion to DL format
+│       ├── s2b_merge_chunks.py             # (Optional) Utility to merge chunks
+│       ├── s3a_hyperparameter_tuning.py    # (Optional) Automated model tuner
+│       ├── s3b_build_model.py              # Main model training script
+│       ├── s3c_incremental_training.py     # Fine-tuning an existing model
+│       ├── s4_predict.py                   # Prediction on new data
+│       └── s5_evaluate.py                  # Model evaluation and plotting
+│       └── supportive_scripts/             # Pre-processing & utility scripts
+│           ├── x1a_pre_process_tarbase.py
+│           └── ...
 │
-├── datasets/                      \# Template for data structure
-│   ├── pdb\_files/
-│   │   ├── competitors/
-│   │   └── targets/
-│   ├── prepared\_dataset/          \# (Empty) Output folder for Stage 1
-│   ├── processed\_for\_dl/          \# (Empty) Output folder for Stage 2
-│   └── raw\_data/
-│       ├── affinity\_score/select/
-│       ├── codon\_tables/
-│       │   └── human\_codon\_usage.txt
-│       ├── competitor/select/
-│       │   └── sample.fasta
-│       ├── conservation\_score/select/
-│       ├── miRNA\_dataset/select/
-│       │   └── sample.fasta
-│       └── target/select/
-│           └── sample.fasta
+├── datasets/                               # Template for data structure (see note)
+│   ├── pdb_files/
+│   ├── prepared_dataset/
+│   ├── processed_for_dl/
+│   └── raw_data/
+│       ├── affinity_score/select/
+│       ├── conservation_score/select/
+│       └── ...
 │
-├── experiments/                   \# All training outputs are saved here
-│   └── exp\_001\_initial\_run/
-│       ├── models/
-│       ├── logs/
-│       └── evaluation/
+├── experiments/                            # All training outputs (models, logs, plots)
 │
-├── prediction/                    \# For running inference on new molecules
-│   ├── ranked\_predictions.parquet
-│   ├── competitor\_to\_compare/
-│   │   └── sample.fasta
-│   ├── primary\_to\_rank/
-│   │   └── sample.fasta
-│   └── target\_to\_predict/
-│       └── sample.fasta
+├── prediction/                             # For running inference on new molecules
 │
 ├── .gitignore
 ├── LICENSE
@@ -175,11 +183,9 @@ E:/1. miRNA-RNA-Deep-Learning-Model/
 
 ## Installation
 
-This project requires Python 3.9+ and external bioinformatics tools.
-
 1.  **Clone the Repository:**
     ```bash
-    git clone https://github.com/aamarzan/miRNA-RNA-Deep-Learning-Model.git
+    git clone [https://github.com/aamarzan/miRNA-RNA-Deep-Learning-Model.git](https://github.com/aamarzan/miRNA-RNA-Deep-Learning-Model.git)
     cd miRNA-RNA-Deep-Learning-Model
     ```
 2.  **Create and Activate a Virtual Environment (Recommended):**
@@ -195,7 +201,7 @@ This project requires Python 3.9+ and external bioinformatics tools.
 
 | Tool | Purpose | Installation |
 | :--- | :--- | :--- |
-| **ViennaRNA** | `RNAfold` for 1D/2D structure prediction | Install from the [official website](https://www.tbi.univie.ac.at/RNA/ViennaRNA/doc/html/install.html) |
+| **ViennaRNA** | `RNAfold` for structure prediction | Install from the [official website](https://www.tbi.univie.ac.at/RNA/ViennaRNA/doc/html/install.html) |
 | **DSSR** | 3D structure analysis for GNN features | Download from the [3DNA Forum](http://forum.x3dna.org/) |
 
 > **Note:** Ensure both tools are in your system's PATH or provide the full executable paths in `config.json`.
@@ -204,47 +210,70 @@ This project requires Python 3.9+ and external bioinformatics tools.
 
 ## End-to-End Workflow
 
-### Step 0: Configuration
+### Stage 0: Setup and Configuration
 
-**This is the most important step.** Before running any scripts, open `codes/Version 4/config.json` and configure it for your project:
+**This is the most important step.** Open `codes/Version 4/config.json` and configure it for your project:
 
 1.  Set the `project_root` to the absolute path of the repository on your machine.
 2.  Set a unique `experiment_id` for your training run.
-3.  Verify all file paths in `data_sources`, `structure_folders`, and `tool_paths`.
-4.  Adjust model hyperparameters in `training_parameters` as needed.
+3.  Verify all paths in `data_sources` and `tool_paths`.
 
-### Part A: Reproducing the Training from Scratch
+### Stage 1: Data Pre-processing and Validation
 
-This workflow is for generating the dataset and training the model.
-
-1.  **Curate Data:** Place all your raw FASTA and score files into the appropriate subdirectories inside `dataset/raw_data/`.
-2.  **Run Stage 1 (Generate Master Dataset):**
+1.  **Curate Data**: Place all your raw FASTA, affinity, and conservation files into the appropriate subdirectories inside `dataset/raw_data/`.
+2.  **Pre-process Data**: Run the necessary supportive scripts (e.g., `x1a_pre_process_tarbase.py`, `x3a_pre_process_conservation.py`) to clean and standardize your raw data files.
+3.  **Run Pre-flight Check**: Before starting the main pipeline, run the final diagnostic script to validate your entire setup. This can save hours of wasted processing time.
     ```bash
-    python "codes/Version 4/s1a_prepare_dataset.py"
-    ```
-3.  **Run Stage 2 (Prepare Data for DL):**
-    ```bash
-    python "codes/Version 4/s2a_prepare_dl_data.py"
-    ```
-    > For extremely large datasets, see the optional chunking workflow in the diagram above (`s1b` and `s2b` scripts).
-4.  **Run Stage 3 (Train the Model):**
-    ```bash
-    python "codes/Version 4/s3a_build_model.py"
+    python "codes/Version 4/s0_final_setup_check.py"
     ```
 
-### Part B: Using a Pre-Trained Model for Prediction (Quick Start)
+### Stage 2: Main Dataset Generation
 
-This workflow is for users who want to rank new molecules using an existing model.
+Run the main data preparation script. It will perform down-sampling, shuffling, feature engineering, and create the master Parquet file.
 
-1.  **Configure for Prediction:** In `config.json`, go to the `prediction_parameters` section.
-      - Set `experiment_to_use` to the ID of the trained model you want to use.
-      - Set `model_to_use` to the name of the saved model file (e.g., `best_supreme_model.keras`).
-2.  **Add Your Molecules:** Place the FASTA files for your new molecules into the subfolders inside the `prediction/` directory.
-3.  **Run Prediction:**
+```bash
+python "codes/Version 4/s1a_prepare_dataset.py"
+```
+
+> For extremely large datasets that cause memory errors, use `s1b_split_dataset.py` to chunk the Parquet file.
+
+### Stage 3: Deep Learning Data Conversion
+
+Convert the master Parquet file into compressed `.npz` arrays for training.
+
+```bash
+python "codes/Version 4/s2a_prepare_dl_data.py"
+```
+
+> If you chunked your data in the previous step, run this script on each chunk and then merge the results with `s2b_merge_chunks.py`.
+
+### Stage 4: Model Training and Optimization
+
+1.  **(Optional but Recommended) Hyperparameter Tuning**: Run the tuner to find the best model settings for your dataset.
+    ```bash
+    python "codes/Version 4/s3a_hyperparameter_tuning.py"
+    ```
+2.  **Main Training**: Update your `config.json` with the best parameters found by the tuner, and run the main training script.
+    ```bash
+    python "codes/Version 4/s3b_build_model.py"
+    ```
+
+### Stage 5: Prediction and Evaluation
+
+  * **Prediction**: To use your trained model, configure the `prediction_parameters` in `config.json`, place your new FASTA files in the `prediction` folder, and run:
     ```bash
     python "codes/Version 4/s4_predict.py"
     ```
-    A ranked list of your primary molecules will be saved as a Parquet file in the `prediction/` folder.
+  * **Evaluation**: To generate a full suite of performance plots, configure the `evaluation_parameters` and run:
+    ```bash
+    python "codes/Version 4/s5_evaluate.py"
+    ```
+
+-----
+
+## Model Limitations & Future Work
+
+The predictive power of this model is fundamentally dependent on the quality and diversity of the input data. The current pseudo-affinity scores generated from experimental evidence databases are a strong proxy, but the model would be further enhanced by training on a large dataset of true, continuous biophysical measurements (e.g., $K\_d$ values from SPR or ITC experiments). Future work will focus on curating such a dataset and exploring more advanced transformer-based architectures for handling even longer sequence contexts.
 
 -----
 
