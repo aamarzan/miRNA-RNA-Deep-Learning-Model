@@ -4,7 +4,7 @@ import os
 
 # --- ⚙️ USER CONFIGURATION ---
 # 1. Point this to the 'miR_Family_Info.txt' file you downloaded from TargetScan.
-INPUT_FILE = "E:/Path/To/Your/Downloads/miR_Family_Info.txt"
+INPUT_FILE = "E:/1. miRNA-RNA-Deep-Learning-Model/dataset/raw_data/conservation_score/select/miR_Family_Info.txt"
 
 # 2. Define where to save the clean, final conservation file.
 OUTPUT_DIR = "E:/1. miRNA-RNA-Deep-Learning-Model/dataset/raw_data/conservation_score/select/"
