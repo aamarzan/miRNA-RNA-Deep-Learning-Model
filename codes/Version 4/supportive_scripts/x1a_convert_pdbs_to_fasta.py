@@ -11,10 +11,10 @@ from Bio.PDB.Polypeptide import protein_letters_3to1_extended as aa3to1
 
 # --- ⚙️ USER CONFIGURATION ---
 # 1. Point this to the directory containing your PDB/CIF files.
-INPUT_DIR = "E:/1. miRNA-RNA-Deep-Learning-Model/dataset/pdb_files/targets"
+INPUT_DIR = "E:/1. miRNA-RNA-Deep-Learning-Model/dataset/pdb_files/competitors"
 
 # 2. Define the name for the output FASTA file.
-OUTPUT_FASTA_FILE = "E:/1. miRNA-RNA-Deep-Learning-Model/dataset/raw_data/target/select/targets_from_pdb.fasta"
+OUTPUT_FASTA_FILE = "E:/1. miRNA-RNA-Deep-Learning-Model/dataset/raw_data/competitor/select/competitors_from_pdb.fasta"
 # --- END OF CONFIGURATION ---
 
 def get_sequence_from_pdb(pdb_path):
