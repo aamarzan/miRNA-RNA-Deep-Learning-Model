@@ -12,7 +12,7 @@ import warnings
 
 # --- Biopython Imports ---
 from Bio.PDB import PDBParser, MMCIFParser, PDBExceptions
-from Bio.PDB.Polypeptide import PPBuilder
+from Bio.PDB.Polypeptide import protein_letters_3to1_extended as aa3to1
 
 
 # ==============================
@@ -40,53 +40,43 @@ def load_config(config_path=None):
 # ==============================
 def _get_sequence_from_pdb(pdb_path):
     """
-    Extracts the canonical 1-letter sequence from a PDB or mmCIF file.
-
-    - Handles both proteins and nucleic acids.
-    - Proteins: Uses PPBuilder (Biopython).
-    - Nucleic acids: Maps residue names to canonical bases (A, U, C, G, T).
-    - Returns the longest sequence if multiple chains are present.
+    Extracts the sequence from a PDB or mmCIF file, handling both
+    proteins and nucleic acids using Biopython's internal dictionaries.
     """
     try:
         with warnings.catch_warnings():
             warnings.simplefilter("ignore", PDBExceptions.PDBConstructionWarning)
-
-            # Choose parser based on file extension (.cif or .pdb)
             file_ext = os.path.splitext(pdb_path)[1].lower()
             parser = MMCIFParser(QUIET=True) if file_ext == '.cif' else PDBParser(QUIET=True)
             structure = parser.get_structure("mol", pdb_path)
-
+            
             sequences = []
+            # Define standard nucleotide residue names
+            nucleotide_map = {
+                "A": "A", "DA": "A", "ADE": "A",
+                "G": "G", "DG": "G", "GUA": "G",
+                "C": "C", "DC": "C", "CYT": "C",
+                "U": "U", "DU": "U", "URA": "U",
+                "T": "T", "DT": "T", "THY": "T"
+            }
 
-            # --- Try protein sequence extraction ---
-            ppb = PPBuilder()
-            for pp in ppb.build_peptides(structure):
-                sequences.append(str(pp.get_sequence()))
-
-            # --- If no protein found, attempt nucleic acid extraction ---
-            if not sequences:
-                nucleotide_map = {
-                    "A": "A", "DA": "A",   # Adenine (RNA/DNA)
-                    "G": "G", "DG": "G",   # Guanine
-                    "C": "C", "DC": "C",   # Cytosine
-                    "U": "U",              # Uracil (RNA)
-                    "DT": "T", "T": "T"    # Thymine (DNA)
-                }
-
-                for model in structure:
-                    for chain in model:
-                        seq = []
-                        for residue in chain:
-                            resname = residue.get_resname().strip()
-                            if resname in nucleotide_map:
-                                seq.append(nucleotide_map[resname])
-                        if seq:
-                            sequences.append("".join(seq))
-
-            # Return the longest valid sequence
+            for model in structure:
+                for chain in model:
+                    chain_sequence = ''
+                    for residue in chain.get_residues():
+                        res_name = residue.get_resname().strip()
+                        # Check if it's a standard nucleotide
+                        if res_name in nucleotide_map:
+                            chain_sequence += nucleotide_map[res_name]
+                        # Else, check if it's a standard amino acid
+                        elif res_name in aa3to1:
+                            chain_sequence += aa3to1[res_name]
+                    
+                    if chain_sequence:
+                        sequences.append(chain_sequence)
+            
             return max(sequences, key=len) if sequences else ""
-
-    except Exception:
+    except Exception: 
         return ""
 
 
