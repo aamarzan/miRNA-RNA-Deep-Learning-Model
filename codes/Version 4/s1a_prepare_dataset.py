@@ -8,6 +8,7 @@ import json
 from itertools import product
 from multiprocessing import Pool, cpu_count
 import time
+from tqdm import tqdm
 import pyarrow as pa
 import pyarrow.parquet as pq
 import random
@@ -22,7 +23,7 @@ def load_config(config_path=None):
         script_dir = os.path.dirname(os.path.realpath(__file__))
         config_path = os.path.join(script_dir, 'config.json')
     
-    print(f"--- Loading configuration from: {config_path} ---")
+    #print(f"--- Loading configuration from: {config_path} ---")
     try:
         with open(config_path, 'r') as f:
             return json.load(f)
@@ -162,9 +163,9 @@ def prepare_dataset(config):
         if not processor_func: continue
 
         with Pool(processes=cpu_count()) as pool:
-            # Pass the tuple (id, seq) to the processor
-            results = pool.map(processor_func, [(mol_data, PARAMS, role) for mol_data in processed_molecules])
-        
+            processing_args = [(mol_data, PARAMS, role) for mol_data in processed_molecules]
+            results = list(tqdm(pool.imap(processor_func, processing_args), total=len(processing_args), desc=f"Processing {role}"))
+
         processed_data[role] = [res for res in results if isinstance(res, dict)]
         print(f"    - {len(processed_data[role])} molecules/chunks passed processing.")
 
