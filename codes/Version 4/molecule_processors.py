@@ -27,7 +27,7 @@ def load_config(config_path=None):
         script_dir = os.path.dirname(os.path.realpath(__file__))
         config_path = os.path.join(script_dir, 'config.json')
     
-    print(f"--- Loading configuration from: {config_path} ---")
+    #print(f"--- Loading configuration from: {config_path} ---")
     try:
         with open(config_path, 'r') as f:
             return json.load(f)

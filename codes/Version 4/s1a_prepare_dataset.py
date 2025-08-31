@@ -193,7 +193,7 @@ def prepare_dataset(config):
     print(f"  - Found {len(unknown_primary_molecules)} molecules with unknown affinity (will be down-sampled).")
 
     # --- NEW: Down-sampling the Unknowns using a configurable ratio ---
-    ratio = PARAMS.get('downsampling_ratio_unknown_to_known', 2.0) # Default to 2.0 if not in config
+    ratio = PARAMS.get('downsampling_ratio_unknown_to_known', 1.0) # Default to 1.0 if not in config
     num_known = len(known_primary_molecules)
     num_unknown_to_keep = min(len(unknown_primary_molecules), int(num_known * ratio))
 
