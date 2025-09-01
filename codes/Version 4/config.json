@@ -86,9 +86,9 @@
         "numerical_features": ["gc_content", "dg", "conservation"],
         "sequence_padding": {
             "_comment": "Settings for a 'Model M' (Medium) foundation model.",
-            "max_primary_len": 200,
+            "max_primary_len": 100,
             "max_target_len": 500,
-            "max_competitor_len": 2500
+            "max_competitor_len": 850
         },
         "model_architecture": {
             "_comment": "Smaller architecture for faster training on CPU.",
