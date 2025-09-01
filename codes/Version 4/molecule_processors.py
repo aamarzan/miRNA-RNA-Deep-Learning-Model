@@ -1,5 +1,6 @@
 # codes/processors.py (With Intelligent PDB Matching)
-
+RNAFOLD_CACHE = {}
+DSSR_CACHE = {}
 # --- Standard Library Imports ---
 import os
 import re
@@ -98,9 +99,18 @@ def predict_rna_structure_1d(sequence):
     Predicts RNA secondary structure (dot-bracket + dG value) using RNAfold.
     - Encodes dot-bracket into vector for downstream ML/GNN models.
     - Returns structure vector + free energy.
+    - This version includes a CACHING mechanism to avoid re-calculating known sequences.
     """
+    # Step 1: Check the cache first for a pre-computed result.
+    if sequence in RNAFOLD_CACHE:
+        return RNAFOLD_CACHE[sequence]
+
+    # Step 2: If not in the cache, run the slow external process.
     config = load_config()
     rnafold_cmd = config.get('tool_paths', {}).get('rnafold') or 'RNAfold'
+    # Default to None in case of failure
+    calculated_result = None
+    
     try:
         result = subprocess.run(
             [rnafold_cmd],
@@ -121,11 +131,19 @@ def predict_rna_structure_1d(sequence):
             # Encode dot-bracket into numeric vector
             encoded_structure = [({'.': 0, '(': 1, ')': -1}).get(c, 0) for c in structure]
 
-            return {'structure_vector': json.dumps(encoded_structure), 'dg': dg}
+            # Store the successful result in our variable
+            calculated_result = {'structure_vector': json.dumps(encoded_structure), 'dg': dg}
 
     except subprocess.CalledProcessError as e:
         print(f"  - WARNING: RNAfold failed for sequence. STDERR: {e.stderr}")
-    return None
+        # 'calculated_result' remains None
+
+    # Step 3: Save the result to the cache before returning.
+    # This caches both successful results and failures (None) to avoid re-trying bad sequences.
+    RNAFOLD_CACHE[sequence] = calculated_result
+    
+    # Step 4: Return the result.
+    return calculated_result
 
 
 def _parse_dot_bracket_to_adjacency(dbn_structure):
@@ -216,7 +234,7 @@ def predict_graph_structure(molecule_id, sequence, role):
         rnafold_cmd = config.get('tool_paths', {}).get('rnafold') or 'RNAfold'
         result = subprocess.run(
             [rnafold_cmd], input=sequence, text=True,
-            capture_output=True, check=True, encoding='utf-8', timeout=30
+            capture_output=True, check=True, encoding='utf-8', timeout=300
         )
         if len(result.stdout.strip().split('\n')) >= 2:
             return _parse_dot_bracket_to_adjacency(result.stdout.strip().split('\n')[1].split(' ')[0])

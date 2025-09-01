@@ -1,8 +1,7 @@
-# s0_check_setup.py
+# s0_check_setup.py (UPGRADED VERSION 2)
 # PURPOSE:
-# A fast-running diagnostic script to validate project setup before launching
-# the time-consuming s1a_prepare_dataset.py script. It checks for common
-# errors in file paths, data availability, ID matching, and config logic.
+# A fast-running diagnostic script to validate project setup. It now simulates
+# the downsampling of unknown miRNAs to predict the final dataset's statistics.
 #
 import os
 import json
@@ -28,16 +27,18 @@ def check_path(path, description, is_file=False):
     print(f"{description:<50} | Status: {status}")
     return exists
 
-def run_id_matching_diagnostics(mirna_folder, affinity_folder, affinity_cols):
+def run_data_diagnostics(mirna_folder, affinity_folder, affinity_cols, config):
     """
-    Performs a comprehensive ID matching check and intelligently finds the ID column.
+    A unified function that performs comprehensive ID matching and calculates
+    statistics for ALL scores, MATCHED scores, and the FINAL SIMULATED dataset.
     """
-    print("\n--- Running Comprehensive ID Matching Diagnostics ---")
+    print("\n--- Running Combined Data Diagnostics (ID Matching & Statistics) ---")
     try:
         def normalize_id(key):
             return str(key).strip().split()[0]
 
-        # Load IDs from ALL FASTA files in the miRNA folder
+        # 1. Load all miRNA IDs from FASTA files
+        print("  - Loading miRNA IDs from all FASTA files...")
         mirna_ids = set()
         fasta_extensions = ('.fa', '.fasta', '.fna', '.txt')
         mirna_files = [f for f in os.listdir(mirna_folder) if f.lower().endswith(fasta_extensions)]
@@ -48,8 +49,9 @@ def run_id_matching_diagnostics(mirna_folder, affinity_folder, affinity_cols):
             for record in SeqIO.parse(filepath, "fasta"):
                 mirna_ids.add(normalize_id(record.id))
         
-        # Load IDs from ALL score files in the affinity folder
-        affinity_ids = set()
+        # 2. Load all affinity data into a dictionary {ID: score}
+        print("  - Loading affinity IDs and scores from all score files...")
+        affinity_data = {}
         score_extensions = ('.csv', '.tsv', '.txt')
         affinity_files = [f for f in os.listdir(affinity_folder) if f.lower().endswith(score_extensions)]
         if not affinity_files: raise FileNotFoundError("No score files (csv, tsv, txt) found in affinity folder.")
@@ -58,89 +60,72 @@ def run_id_matching_diagnostics(mirna_folder, affinity_folder, affinity_cols):
             filepath = os.path.join(affinity_folder, filename)
             sep = '\t' if filepath.lower().endswith(('.tsv', '.txt')) else ','
             
-            # Intelligently find the ID column
             df = pd.read_csv(filepath, sep=sep, comment='#', low_memory=False)
-            id_col_expected = affinity_cols['id_col']
-            id_col_found = None
+            id_col_expected, score_col_expected = affinity_cols['id_col'], affinity_cols['score_col']
             
-            if id_col_expected in df.columns:
-                id_col_found = id_col_expected
-            else:
-                alternatives = ['miRNA', 'miRNA_ID', 'miRTarBase ID']
-                for alt in alternatives:
-                    if alt in df.columns:
-                        id_col_found = alt
-                        print(f"  - ⚠️ INFO: Expected ID column '{id_col_expected}' not found. Using alternative '{id_col_found}' instead.")
-                        break
+            id_col_found = id_col_expected if id_col_expected in df.columns else next((alt for alt in ['miRNA', 'miRNA_ID'] if alt in df.columns), None)
+            score_col_found = score_col_expected if score_col_expected in df.columns else next((alt for alt in ['microt_score', 'Affinity', 'Score'] if alt in df.columns), None)
             
-            if not id_col_found:
-                raise ValueError(f"Could not find the required ID column '{id_col_expected}' or any known alternatives in {filename}.")
+            if not id_col_found or not score_col_found:
+                raise ValueError(f"Could not find required ID or Score columns in {filename}.")
 
-            affinity_ids.update({normalize_id(val) for val in df[id_col_found].dropna()})
+            for _, row in df.iterrows():
+                norm_id = normalize_id(row[id_col_found])
+                score = pd.to_numeric(row[score_col_found], errors='coerce')
+                if pd.notna(score):
+                    affinity_data[norm_id] = score
 
-        print("\n--- Sample IDs Found ---")
-        print(f"Sample IDs from all miRNA FASTA files combined:")
-        print(f"  {list(mirna_ids)[:10]}")
-        print(f"\nSample IDs from all Affinity files combined:")
-        print(f"  {list(affinity_ids)[:10]}")
-        print("------------------------\n")
-
+        # 3. Perform ID Matching Analysis
+        affinity_ids = set(affinity_data.keys())
         matched_ids = mirna_ids.intersection(affinity_ids)
 
+        print("\n--- ID Matching Summary ---")
         print(f"Total Unique miRNA IDs from FASTA (normalized): {len(mirna_ids)}")
         print(f"Total Unique IDs from Affinity File (normalized): {len(affinity_ids)}")
-        print(f"  - Number of Matched IDs: {len(matched_ids)}")
+        print(f"  - ✅ Number of Matched IDs: {len(matched_ids)}")
 
         if not matched_ids:
             print("  - ❌ CRITICAL WARNING: Zero IDs matched between your miRNA FASTA and affinity score files!")
         
-    except Exception as e:
-        print(f"  - ❌ ERROR during ID check: {e}")
+        # 4. Perform Statistical Analysis
+        print("\n--- Affinity Score Statistics ---")
+        if affinity_data:
+            all_scores = pd.Series(list(affinity_data.values()))
+            print("\n📊 Descriptive Statistics for ALL Affinity Scores:")
+            print(all_scores.describe().to_string())
+        else:
+            print("No affinity scores were loaded.")
 
-def run_affinity_statistics_diagnostics(affinity_folder, affinity_cols):
-    """
-    Loads all affinity files, intelligently finds the score column, and prints a summary.
-    """
-    print("\n--- Running Affinity Score Statistical Diagnostics ---")
-    try:
-        all_dfs = []
-        score_extensions = ('.csv', '.tsv', '.txt')
-        affinity_files = [f for f in os.listdir(affinity_folder) if f.lower().endswith(score_extensions)]
-        if not affinity_files: raise FileNotFoundError("No score files found.")
+        if matched_ids:
+            matched_scores_list = [affinity_data[mid] for mid in matched_ids]
+            matched_scores = pd.Series(matched_scores_list)
+            print("\n📊 Descriptive Statistics for MATCHED Affinity Scores Only:")
+            print(matched_scores.describe().to_string())
+        else:
+            print("\nNo matched scores to analyze.")
+        
+        # 5. ⭐ NEW: Simulate the downsampling from s1a to predict final dataset statistics
+        print("\n--- Statistics After Simulating Downsampling ---")
+        unknown_ids = mirna_ids - affinity_ids
+        ratio = config.get('processing_parameters', {}).get('downsampling_ratio_unknown_to_known', 1.0)
+        num_known = len(matched_ids)
+        num_unknown_to_keep = min(len(unknown_ids), int(num_known * ratio))
+        
+        print(f"  - Simulating the addition of {num_unknown_to_keep} 'unknown' miRNAs (with affinity 0.0)")
+        print(f"  - Based on {num_known} known miRNAs and a ratio of {ratio:.2f} from config.json")
 
-        score_col_found_overall = None
-        for filename in affinity_files:
-            filepath = os.path.join(affinity_folder, filename)
-            sep = '\t' if filepath.lower().endswith(('.tsv', '.txt')) else ','
-
-            # Intelligently find the score column
-            df = pd.read_csv(filepath, sep=sep, comment='#', low_memory=False)
-            score_col_expected = affinity_cols['score_col']
-            score_col_found = None
-
-            if score_col_expected in df.columns:
-                score_col_found = score_col_expected
-            else:
-                alternatives = ['microt_score', 'Affinity', 'Score']
-                for alt in alternatives:
-                    if alt in df.columns:
-                        score_col_found = alt
-                        print(f"  - ⚠️ INFO: Expected score column '{score_col_expected}' not found. Using alternative '{score_col_found}' instead.")
-                        break
+        if matched_ids:
+            # Unknowns are treated as having 0.0 affinity
+            unknown_scores_to_add = [0.0] * num_unknown_to_keep
+            final_simulated_scores = pd.Series(matched_scores_list + unknown_scores_to_add)
             
-            if not score_col_found:
-                raise ValueError(f"Could not find the required score column '{score_col_expected}' or any known alternatives in {filename}.")
-
-            all_dfs.append(df[[score_col_found]])
-            score_col_found_overall = score_col_found # Store the name of the column we found
-        
-        final_df = pd.concat(all_dfs, ignore_index=True)
-        
-        print(f"Statistics for '{score_col_found_overall}' column across all {len(affinity_files)} files:")
-        print(final_df[score_col_found_overall].describe().to_string())
+            print("\n📊 Descriptive Statistics for Final SIMULATED Dataset:")
+            print(final_simulated_scores.describe().to_string())
+        else:
+            print("\nCannot simulate downsampling without any matched miRNAs.")
 
     except Exception as e:
-        print(f"  - ❌ ERROR during statistics check: {e}")
+        print(f"  - ❌ ERROR during diagnostics: {e}")
 
 
 def main():
@@ -163,14 +148,14 @@ def main():
     for name, source_info in config['data_sources'].items():
         path = os.path.join(raw_data_folder, source_info['folder'])
         check_path(path, f"Source folder for '{name}'")
-        
-    # 2. Perform Diagnostics on Data Files
+            
+    # 2. Perform Unified Diagnostics on Data Files
     mirna_folder = os.path.join(raw_data_folder, config['data_sources']['mirna']['folder'])
     affinity_folder = os.path.join(raw_data_folder, config['data_sources']['affinity']['folder'])
     affinity_cols = config['data_sources']['affinity']
     
-    run_id_matching_diagnostics(mirna_folder, affinity_folder, affinity_cols)
-    run_affinity_statistics_diagnostics(affinity_folder, affinity_cols)
+    # Call the new unified function, passing the config object
+    run_data_diagnostics(mirna_folder, affinity_folder, affinity_cols, config)
         
     # 3. Check Config Logic
     print("\n--- Checking Config File Logic ---")

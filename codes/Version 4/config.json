@@ -41,7 +41,7 @@
         "_comment": "Parameters for Stage 1 (s1_prepare_dataset.py).",
         "enable_pdb_processing": true,
         "focus_on_target_region": false,
-        "downsampling_ratio_unknown_to_known": 1.0,
+        "downsampling_ratio_unknown_to_known": 0.95,
         "target_region_name": "My_ROI",
         "target_region_slice": [90, 150],
         "sliding_window": {

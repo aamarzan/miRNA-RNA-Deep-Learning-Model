@@ -228,20 +228,56 @@ def prepare_dataset(config):
     competitors_augmented = competitor_molecules + [null_competitor]
     print(f"  - Final competitor list contains {len(competitors_augmented)} entries (including null).")
 
-    print("\nStep 6: Generating and Shuffling Combinations...")
-    # This list is now much smaller and will not cause a memory error
-    all_combinations = list(product(balanced_primary_molecules, target_molecules, competitors_augmented))
-    random.shuffle(all_combinations)
-    print(f"  - Generated and shuffled {len(all_combinations)} total combinations.")
+# =========================================================================================
+    # STEP 6: GENERATING AND SHUFFLING COMBINATIONS
+    # =========================================================================================
+    print("\nStep 6: Generating and Shuffling Combinations with Progress...")
+    # --- Timer Start for Step 6 ---
+    start_gen_time = time.time()
 
-    print("\nStep 7: Streaming Shuffled Combinations to Parquet...")
+    # First, calculate the total number of combinations to set up the progress bar
+    total_combinations_count = len(balanced_primary_molecules) * len(target_molecules) * len(competitors_augmented)
+    print(f"  - Preparing to generate {total_combinations_count} combinations...")
+
+    # Create the combination generator
+    combination_generator = product(balanced_primary_molecules, target_molecules, competitors_augmented)
+
+    # Build the final list by iterating through the generator with a tqdm progress bar
+    all_combinations = [
+        combo for combo in tqdm(
+            combination_generator,
+            total=total_combinations_count,
+            desc="  Generating combinations"
+        )
+    ]
+
+    print("  - Now shuffling all combinations...")
+    random.shuffle(all_combinations)
+
+    # --- Timer End for Step 6 ---
+    end_gen_time = time.time()
+    gen_time_taken = end_gen_time - start_gen_time
+
+    print(f"\n  - Generated and shuffled {len(all_combinations)} total combinations.")
+    print(f"  - Time taken for this step: {gen_time_taken:.2f} seconds")
+
+
+    # =========================================================================================
+    # STEP 7: STREAMING SHUFFLED COMBINATIONS TO PARQUET
+    # =========================================================================================
+    print("\nStep 7: Streaming Shuffled Combinations to Parquet with Progress...")
+    # --- Timer Start for Step 7 ---
+    start_write_time = time.time()
+
     output_filename = f"Prepared_Dataset_{int(time.time())}.parquet"
     output_path = os.path.join(PREPARED_DATASET_DIR, output_filename)
-    
+
     parquet_writer = None
     batch, total_rows = [], 0
-    
-    for primary_data, target_data, competitor_data in all_combinations:
+
+    # --- Progress Bar Implementation for Step 7 ---
+    # Wrap the main loop with tqdm to monitor progress of iterating through combinations
+    for primary_data, target_data, competitor_data in tqdm(all_combinations, desc="  Writing to Parquet"):
         row = {
             'primary_id': primary_data.get('id'), 'primary_sequence': primary_data.get('sequence'),
             'gc_content': primary_data.get('gc_content'), 'dg': primary_data.get('dg'),
@@ -252,29 +288,43 @@ def prepare_dataset(config):
         }
         batch.append(row)
 
+        # We keep the batching logic for efficient disk I/O, but remove the old print statement
         if len(batch) >= PARAMS.get('batch_size_parquet', 50000):
             table = pa.Table.from_pandas(pd.DataFrame(batch), preserve_index=False)
             if parquet_writer is None:
                 parquet_writer = pq.ParquetWriter(output_path, table.schema)
             parquet_writer.write_table(table)
             total_rows += len(batch)
-            print(f"  ... {total_rows} rows written", end='\r')
             batch = []
 
+    # Write any remaining data in the final batch
     if batch:
         table = pa.Table.from_pandas(pd.DataFrame(batch), preserve_index=False)
         if parquet_writer is None:
+            # This handles cases where the total dataset is smaller than one batch
             parquet_writer = pq.ParquetWriter(output_path, table.schema)
         parquet_writer.write_table(table)
         total_rows += len(batch)
 
     if parquet_writer: parquet_writer.close()
+
+    # --- Timer End for Step 7 ---
+    end_write_time = time.time()
+    write_time_taken = end_write_time - start_write_time
+
+    # Final summary printout for this step
+    print(f"\n  - Wrote a total of {total_rows} rows to '{output_filename}'.")
+    print(f"  - Time taken for this step: {write_time_taken:.2f} seconds")
+
     
+    # =========================================================================================
+    # FINAL SCRIPT SUMMARY
+    # =========================================================================================
     end_time = time.time()
     print(f"\n\n--- Dataset Preparation Summary ---")
     print(f"Total combinations generated: {total_rows}")
-    print(f"Dataset saved to {output_path}")
-    print(f"Time taken: {end_time - start_time:.2f} seconds")
+    print(f"Dataset saved to: {output_path}")
+    print(f"Total time taken for the entire script: {end_time - start_time:.2f} seconds")
 
 if __name__ == "__main__":
     config = load_config()
