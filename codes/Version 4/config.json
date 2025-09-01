@@ -7,7 +7,7 @@
     },
     "data_folders": {
         "main_dataset_folder": "dataset",
-        "prepared_subfolder": "prepared_dataset",
+        "prepared_subfolder": "prepared_dataset/select",
         "processed_for_dl_subfolder": "processed_for_dl"
     },
     "output_folders": {

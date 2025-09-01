@@ -16,6 +16,7 @@ from tensorflow.keras.layers import (Input, Conv1D, Dense, Dropout, BatchNormali
                                      MultiHeadAttention, GlobalAveragePooling1D, LayerNormalization)
 from tensorflow.keras.models import Model
 from tensorflow.keras.optimizers import Adam
+import time
 
 # --- FIX: Import from the correctly renamed s3b_build_model.py script ---
 from s3b_build_model import DataGenerator, PositionalEncoding

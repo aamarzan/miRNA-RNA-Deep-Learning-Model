@@ -1,21 +1,20 @@
-# 2_deep_learning_data_preparation.py (Corrected Config-Driven, Memory-Safe Version)
+# 2_deep_learning_data_preparation.py (UPGRADED WITH TIMERS AND PROGRESS BARS)
 import os
 import pandas as pd
 import numpy as np
 import json
 import time
 import joblib
+import math
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import MinMaxScaler
 from tensorflow.keras.preprocessing.sequence import pad_sequences
 import pyarrow.parquet as pq
+from tqdm import tqdm
 
 # --- Configuration Loader ---
 def load_config(config_path=None):
-    """
-    Loads the configuration from a JSON file.
-    If no path is given, it automatically finds 'config.json' in the same directory as the script.
-    """
+    """Loads and returns the configuration file."""
     if config_path is None:
         script_dir = os.path.dirname(os.path.realpath(__file__))
         config_path = os.path.join(script_dir, 'config.json')
@@ -39,7 +38,7 @@ def one_hot_encode_sequence(sequence, max_len, nucleotide_map):
 
 # --- Main Processing Function ---
 def main():
-    start_time = time.time()
+    total_start_time = time.time()
     print("--- Starting Data Preparation for Deep Learning (Memory-Safe) ---")
     
     # --- Step 1: Load Config and Define Paths ---
@@ -55,8 +54,7 @@ def main():
     print(f"\nScanning for datasets in: {prepared_folder}")
     try:
         prepared_files = [f for f in os.listdir(prepared_folder) if f.endswith('.parquet')]
-        if not prepared_files:
-            raise FileNotFoundError
+        if not prepared_files: raise FileNotFoundError
         prepared_dataset_filename = sorted(prepared_files)[-1]
         prepared_dataset_path = os.path.join(prepared_folder, prepared_dataset_filename)
         print(f"  - Using latest dataset: {prepared_dataset_filename}")
@@ -65,8 +63,8 @@ def main():
         exit()
 
     # --- Step 3: Fit Scaler in a Memory-Safe Way ---
+    step1_start_time = time.time()
     print("\nStep 1: Fitting the scaler on numerical features...")
-    # This pass only loads the numerical columns to minimize RAM usage
     numerical_features = params.get('numerical_features', ['gc_content', 'dg', 'conservation'])
     try:
         numerical_df = pd.read_parquet(prepared_dataset_path, columns=numerical_features)
@@ -74,39 +72,40 @@ def main():
         scaler.fit(numerical_df)
         joblib.dump(scaler, os.path.join(output_dl_folder, 'minmax_scaler.pkl'))
         print(f"  - Scaler fitted on {len(numerical_df)} rows and saved.")
-        del numerical_df # Free memory
+        del numerical_df
     except Exception as e:
         print(f"  - FATAL ERROR: Could not read numerical features to fit scaler: {e}")
         exit()
+    step1_time = time.time() - step1_start_time
+    print(f"  - Time for Step 1: {step1_time:.2f} seconds")
 
     # --- Step 4: Create Train-Test Split based on Indices ---
+    step2_start_time = time.time()
     print("\nStep 2: Creating train-test split indices...")
     parquet_file = pq.ParquetFile(prepared_dataset_path)
-    # <<< FIX: Access the number of rows from the metadata attribute
     num_rows = parquet_file.metadata.num_rows
     indices = np.arange(num_rows)
     train_indices, test_indices = train_test_split(indices, test_size=params.get('test_split_ratio', 0.2), random_state=42)
     print(f"  - Total samples: {num_rows}")
     print(f"  - Training samples: {len(train_indices)}, Testing samples: {len(test_indices)}")
     
-    # Create a lookup array for efficient assignment
-    sample_assignment = np.empty(num_rows, dtype='U5') # 'train' or 'test'
+    sample_assignment = np.empty(num_rows, dtype='U5')
     sample_assignment[train_indices] = 'train'
     sample_assignment[test_indices] = 'test'
-    del indices, train_indices, test_indices # Free memory
+    del indices, train_indices, test_indices
+    step2_time = time.time() - step2_start_time
+    print(f"  - Time for Step 2: {step2_time:.2f} seconds")
+
 
     # --- Step 5: Process and Save Datasets in Batches ---
-    print("\nStep 3: Processing and saving datasets in memory-safe batches...")
+    step3_start_time = time.time()
+    print("\nStep 3: Processing data in memory-safe batches...")
     
-    # Define constants from config
     pad_params = params['sequence_padding']
-    max_primary_len = pad_params['max_primary_len']
-    max_target_len = pad_params['max_target_len']
-    max_competitor_len = pad_params['max_competitor_len']
+    max_primary_len, max_target_len, max_competitor_len = pad_params['max_primary_len'], pad_params['max_target_len'], pad_params['max_competitor_len']
     target_feature = params.get('target_feature', 'affinity')
     nucleotide_map = {'A': 0, 'U': 1, 'G': 2, 'C': 3, 'N': 4}
     
-    # Helper to process a pandas DataFrame chunk
     def process_chunk(df_chunk, scaler_obj):
         y = df_chunk[target_feature].values.astype(np.float32)
         X = {
@@ -118,22 +117,22 @@ def main():
         }
         return X, y
 
-    # Use iter_batches for memory efficiency
-    # Reads the batch size from the data_processing section of the config
     dp_params = config.get('data_processing', {})
-    batch_iterator = parquet_file.iter_batches(batch_size=dp_params.get('batch_size_parquet', 1000))
+    batch_size = dp_params.get('batch_size_parquet', 1000)
+    batch_iterator = parquet_file.iter_batches(batch_size=batch_size)
+    total_batches = math.ceil(num_rows / batch_size)
     
-    # Use lists to accumulate results before saving
-    X_train_batches, y_train_batches = {key: [] for key in process_chunk(next(batch_iterator).to_pandas(), scaler)[0]}, []
-    X_test_batches, y_test_batches = {key: [] for key in X_train_batches}, []
+    # Initialize lists to hold results
+    first_batch_df = next(parquet_file.iter_batches(batch_size=1)).to_pandas()
+    sample_X, _ = process_chunk(first_batch_df, scaler)
+    X_train_batches, y_train_batches = {key: [] for key in sample_X}, []
+    X_test_batches, y_test_batches = {key: [] for key in sample_X}, []
     
-    # Reset iterator and process all batches
-    batch_iterator = parquet_file.iter_batches(batch_size=params.get('batch_size', 10000))
     processed_rows = 0
-    for batch in batch_iterator:
+    # ⭐ NEW: Wrap the batch iterator with tqdm for a progress bar
+    for batch in tqdm(parquet_file.iter_batches(batch_size=batch_size), total=total_batches, desc="  Processing batches"):
         df = batch.to_pandas()
         
-        # Split dataframe based on pre-calculated indices
         batch_indices = np.arange(processed_rows, processed_rows + len(df))
         assignments = sample_assignment[batch_indices]
         
@@ -151,18 +150,22 @@ def main():
             y_test_batches.append(y_test)
             
         processed_rows += len(df)
-        print(f"  - Processed {processed_rows}/{num_rows} rows...", end='\r')
+    
+    step3_time = time.time() - step3_start_time
+    print(f"  - Time for Step 3: {step3_time:.2f} seconds")
 
-# --- Step 6: Finalize and Save Arrays ---
-    print("\n\nStep 4: Concatenating and saving final compressed .npz arrays...")
+
+    # --- Step 6: Finalize and Save Arrays ---
+    step4_start_time = time.time()
+    print("\nStep 4: Concatenating and saving final compressed .npz arrays...")
 
     # Save training data
     if y_train_batches:
         y_train_final = np.concatenate(y_train_batches)
-        # --- NEW: Apply square root transformation ---
         y_train_final_transformed = np.sqrt(y_train_final)
         np.savez_compressed(os.path.join(output_dl_folder, 'y_train.npz'), data=y_train_final_transformed)
-        for key in X_train_batches:
+        # ⭐ NEW: Wrap the saving loop with tqdm
+        for key in tqdm(X_train_batches.keys(), desc="  Saving train arrays"):
             X_train_final = np.concatenate(X_train_batches[key])
             np.savez_compressed(os.path.join(output_dl_folder, f'X_train_{key}.npz'), data=X_train_final)
         print(f"  - Saved {len(y_train_final)} training samples.")
@@ -170,17 +173,20 @@ def main():
     # Save test data
     if y_test_batches:
         y_test_final = np.concatenate(y_test_batches)
-        # --- NEW: Apply square root transformation ---
         y_test_final_transformed = np.sqrt(y_test_final)
         np.savez_compressed(os.path.join(output_dl_folder, 'y_test.npz'), data=y_test_final_transformed)
-        for key in X_test_batches:
+        # ⭐ NEW: Wrap the saving loop with tqdm
+        for key in tqdm(X_test_batches.keys(), desc="  Saving test arrays "):
             X_test_final = np.concatenate(X_test_batches[key])
             np.savez_compressed(os.path.join(output_dl_folder, f'X_test_{key}.npz'), data=X_test_final)
         print(f"  - Saved {len(y_test_final)} test samples.")
+    
+    step4_time = time.time() - step4_start_time
+    print(f"  - Time for Step 4: {step4_time:.2f} seconds")
 
-    end_time = time.time()
+    total_time = time.time() - total_start_time
     print("\n--- Deep Learning Data Preparation Complete ---")
-    print(f"Total time taken: {end_time - start_time:.2f} seconds")
+    print(f"Total time taken: {total_time:.2f} seconds")
 
 if __name__ == "__main__":
     main()
