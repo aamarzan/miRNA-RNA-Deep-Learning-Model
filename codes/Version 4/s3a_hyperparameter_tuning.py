@@ -131,8 +131,10 @@ if __name__ == "__main__":
     stop_early = tf.keras.callbacks.EarlyStopping(monitor='val_loss', patience=5)
     
     print("\n--- Starting Hyperparameter Search ---")
+    start_time = time.time() # Timer Start
     tuner.search(train_generator, epochs=params['epochs'], validation_data=val_generator, callbacks=[stop_early])
-
+    end_time = time.time() # Timer End
+    
     # --- Get and Print Best Hyperparameters ---
     best_hps = tuner.get_best_hyperparameters(num_trials=1)[0]
 
@@ -147,3 +149,4 @@ if __name__ == "__main__":
     You can now update these values in your config.json and run the main training 
     script (s3b_build_model.py) for a final, fully trained model.
     """)
+    print(f"Total time taken for search: {end_time - start_time:.2f} seconds")
