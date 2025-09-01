@@ -78,7 +78,7 @@
         ],
         "task_type": "regression",
         "batch_size": 256,
-        "epochs": 40,
+        "epochs": 20,
         "learning_rate": 0.0005,
         "dropout_rate": 0.4,
         "test_split_ratio": 0.2,
