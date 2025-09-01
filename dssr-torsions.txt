@@ -1,0 +1,392 @@
+         Output of DNA/RNA backbone conformational parameters
+             DSSR v2.6.0-2025jul24 by xiangjun@x3dna.org
+******************************************************************************************
+Main chain conformational parameters:
+
+  alpha:   O3'(i-1)-P-O5'-C5'
+  beta:    P-O5'-C5'-C4'
+  gamma:   O5'-C5'-C4'-C3'
+  delta:   C5'-C4'-C3'-O3'
+  epsilon: C4'-C3'-O3'-P(i+1)
+  zeta:    C3'-O3'-P(i+1)-O5'(i+1)
+  e-z:     epsilon-zeta (BI/BII backbone classification)
+
+  chi for pyrimidines(Y): O4'-C1'-N1-C2; purines(R): O4'-C1'-N9-C4
+    Range [170, -50(310)] is assigned to anti, and [50, 90] to syn
+
+  phase-angle: the phase angle of pseudorotation and puckering
+  sugar-type: ~C2'-endo for C2'-endo like conformation, or
+               ~C3'-endo for C3'-endo like conformation
+              Note the ONE column offset (for easy visual distinction)
+
+ssZp: single-stranded Zp, defined as the z-coordinate of the 3' phosphorus atom
+      (P) expressed in the standard reference frame of the 5' base; the value is
+      POSITIVE when P lies on the +z-axis side (base in anti conformation);
+      NEGATIVE if P is on the -z-axis side (base in syn conformation)
+  Dp: perpendicular distance of the 3' P atom to the glycosidic bond
+      [Ref: Chen et al. (2010): "MolProbity: all-atom structure
+            validation for macromolecular crystallography."
+            Acta Crystallogr D Biol Crystallogr, 66(1):12-21]
+splay: angle between the bridging P to the two base-origins of a dinucleotide.
+
+          nt               alpha    beta   gamma   delta  epsilon   zeta     e-z        chi            phase-angle   sugar-type    ssZp     Dp    splay
+ 1     g M.GTA1003           ---     ---     ---     ---     ---     ---     ---         ---           ---              ----        ---     ---     ---
+ 2     U M.U1004             ---   154.3   -64.2   148.2  -114.0  -153.6     40(--)   -100.8(anti)   166.9(C2'-endo) ~C2'-endo      ---     ---     ---
+ 3     G M.G1005             ---     ---     ---     ---     ---     ---     ---         ---           ---              ----        ---     ---     ---
+
+ 1     g N.GTA1003           ---     ---     ---     ---     ---     ---     ---         ---           ---              ----        ---     ---     ---
+ 2     U N.U1004             ---   154.3   -64.2   148.2  -114.0  -153.6     40(--)   -100.8(anti)   166.8(C2'-endo) ~C2'-endo      ---     ---     ---
+ 3     G N.G1005             ---     ---     ---     ---     ---     ---     ---         ---           ---              ----        ---     ---     ---
+
+ 1     g O.GTA1003           ---     ---     ---     ---     ---     ---     ---         ---           ---              ----        ---     ---     ---
+ 2     U O.U1004             ---   154.3   -64.2   148.2  -114.0  -153.6     40(--)   -100.9(anti)   166.8(C2'-endo) ~C2'-endo      ---     ---     ---
+ 3     G O.G1005             ---     ---     ---     ---     ---     ---     ---         ---           ---              ----        ---     ---     ---
+
+ 1     g P.GTA1003           ---     ---     ---     ---     ---     ---     ---         ---           ---              ----        ---     ---     ---
+ 2     U P.U1004             ---   154.3   -64.2   148.2  -114.0  -153.6     40(--)   -100.9(anti)   166.8(C2'-endo) ~C2'-endo      ---     ---     ---
+ 3     G P.G1005             ---     ---     ---     ---     ---     ---     ---         ---           ---              ----        ---     ---     ---
+
+ 1     g Q.GTA1003           ---     ---     ---     ---     ---     ---     ---         ---           ---              ----        ---     ---     ---
+ 2     U Q.U1004             ---   154.3   -64.2   148.2  -114.0  -153.7     40(--)   -100.9(anti)   166.8(C2'-endo) ~C2'-endo      ---     ---     ---
+ 3     G Q.G1005             ---     ---     ---     ---     ---     ---     ---         ---           ---              ----        ---     ---     ---
+
+ 1     g R.GTA1003           ---     ---     ---     ---     ---     ---     ---         ---           ---              ----        ---     ---     ---
+ 2     U R.U1004             ---   154.3   -64.3   148.1  -113.9  -153.6     40(--)   -100.9(anti)   166.9(C2'-endo) ~C2'-endo      ---     ---     ---
+ 3     G R.G1005             ---     ---     ---     ---     ---     ---     ---         ---           ---              ----        ---     ---     ---
+
+ 1     g S.GTA1003           ---     ---     ---     ---     ---     ---     ---         ---           ---              ----        ---     ---     ---
+ 2     U S.U1004             ---   154.3   -64.3   148.2  -114.0  -153.7     40(--)   -100.9(anti)   166.8(C2'-endo) ~C2'-endo      ---     ---     ---
+ 3     G S.G1005             ---     ---     ---     ---     ---     ---     ---         ---           ---              ----        ---     ---     ---
+
+ 1     g T.GTA1003           ---     ---     ---     ---     ---     ---     ---         ---           ---              ----        ---     ---     ---
+ 2     U T.U1004             ---   154.3   -64.3   148.2  -114.0  -153.6     40(--)   -100.9(anti)   166.8(C2'-endo) ~C2'-endo      ---     ---     ---
+ 3     G T.G1005             ---     ---     ---     ---     ---     ---     ---         ---           ---              ----        ---     ---     ---
+
+ 1     g U.GTA1003           ---     ---     ---     ---     ---     ---     ---         ---           ---              ----        ---     ---     ---
+ 2     U U.U1004             ---   154.3   -64.2   148.2  -113.9  -153.7     40(--)   -100.8(anti)   166.9(C2'-endo) ~C2'-endo      ---     ---     ---
+ 3     G U.G1005             ---     ---     ---     ---     ---     ---     ---         ---           ---              ----        ---     ---     ---
+
+ 1     g V.GTA1003           ---     ---     ---     ---     ---     ---     ---         ---           ---              ----        ---     ---     ---
+ 2     U V.U1004             ---   154.3   -64.2   148.2  -114.0  -153.6     40(--)   -100.9(anti)   166.8(C2'-endo) ~C2'-endo      ---     ---     ---
+ 3     G V.G1005             ---     ---     ---     ---     ---     ---     ---         ---           ---              ----        ---     ---     ---
+
+ 1     g W.GTA1003           ---     ---     ---     ---     ---     ---     ---         ---           ---              ----        ---     ---     ---
+ 2     U W.U1004             ---   154.3   -64.2   148.1  -114.0  -153.6     40(--)   -100.9(anti)   166.8(C2'-endo) ~C2'-endo      ---     ---     ---
+ 3     G W.G1005             ---     ---     ---     ---     ---     ---     ---         ---           ---              ----        ---     ---     ---
+
+ 1     g X.GTA1003           ---     ---     ---     ---     ---     ---     ---         ---           ---              ----        ---     ---     ---
+ 2     U X.U1004             ---   154.3   -64.2   148.2  -114.0  -153.6     40(--)   -100.9(anti)   166.8(C2'-endo) ~C2'-endo      ---     ---     ---
+ 3     G X.G1005             ---     ---     ---     ---     ---     ---     ---         ---           ---              ----        ---     ---     ---
+
+ 1     a A.SAH1002           ---     ---     ---   111.7     ---     ---     ---       -96.5(anti)   106.5(O4'-endo)    ----        ---     ---     ---
+
+ 1     a B.SAH1002           ---     ---     ---   111.7     ---     ---     ---       -96.4(anti)   106.6(O4'-endo)    ----        ---     ---     ---
+
+ 1     a C.SAH1002           ---     ---     ---   111.7     ---     ---     ---       -96.4(anti)   106.5(O4'-endo)    ----        ---     ---     ---
+
+ 1     a D.SAH1002           ---     ---     ---   111.7     ---     ---     ---       -96.5(anti)   106.5(O4'-endo)    ----        ---     ---     ---
+
+ 1     a E.SAH1002           ---     ---     ---   111.7     ---     ---     ---       -96.4(anti)   106.4(O4'-endo)    ----        ---     ---     ---
+
+ 1     a F.SAH1002           ---     ---     ---   111.7     ---     ---     ---       -96.4(anti)   106.5(O4'-endo)    ----        ---     ---     ---
+
+ 1     a G.SAH1002           ---     ---     ---   111.7     ---     ---     ---       -96.5(anti)   106.5(O4'-endo)    ----        ---     ---     ---
+
+ 1     a H.SAH1002           ---     ---     ---   111.7     ---     ---     ---       -96.4(anti)   106.5(O4'-endo)    ----        ---     ---     ---
+
+ 1     a I.SAH1002           ---     ---     ---   111.7     ---     ---     ---       -96.5(anti)   106.5(O4'-endo)    ----        ---     ---     ---
+
+ 1     a J.SAH1002           ---     ---     ---   111.7     ---     ---     ---       -96.5(anti)   106.5(O4'-endo)    ----        ---     ---     ---
+
+ 1     a K.SAH1002           ---     ---     ---   111.8     ---     ---     ---       -96.5(anti)   106.4(O4'-endo)    ----        ---     ---     ---
+
+ 1     a L.SAH1002           ---     ---     ---   111.7     ---     ---     ---       -96.5(anti)   106.5(O4'-endo)    ----        ---     ---     ---
+
+******************************************************************************************
+Virtual eta/theta torsion angles:
+
+  eta:    C4'(i-1)-P(i)-C4'(i)-P(i+1)
+  theta:  P(i)-C4'(i)-P(i+1)-C4'(i+1)
+    [Ref: Olson (1980): "Configurational statistics of polynucleotide chains.
+          An updated virtual bond model to treat effects of base stacking."
+          Macromolecules, 13(3):721-728]
+
+  eta':   C1'(i-1)-P(i)-C1'(i)-P(i+1)
+  theta': P(i)-C1'(i)-P(i+1)-C1'(i+1)
+    [Ref: Keating et al. (2011): "A new way to see RNA." Quarterly Reviews
+          of Biophysics, 44(4):433-466]
+
+  eta":   base(i-1)-P(i)-base(i)-P(i+1)
+  theta": P(i)-base(i)-P(i+1)-base(i+1)
+
+          nt                eta   theta     eta'  theta'    eta"  theta"
+ 1     g M.GTA1003           ---     ---     ---     ---     ---     ---
+ 2     U M.U1004             ---     ---     ---     ---     ---     ---
+ 3     G M.G1005             ---     ---     ---     ---     ---     ---
+
+ 1     g N.GTA1003           ---     ---     ---     ---     ---     ---
+ 2     U N.U1004             ---     ---     ---     ---     ---     ---
+ 3     G N.G1005             ---     ---     ---     ---     ---     ---
+
+ 1     g O.GTA1003           ---     ---     ---     ---     ---     ---
+ 2     U O.U1004             ---     ---     ---     ---     ---     ---
+ 3     G O.G1005             ---     ---     ---     ---     ---     ---
+
+ 1     g P.GTA1003           ---     ---     ---     ---     ---     ---
+ 2     U P.U1004             ---     ---     ---     ---     ---     ---
+ 3     G P.G1005             ---     ---     ---     ---     ---     ---
+
+ 1     g Q.GTA1003           ---     ---     ---     ---     ---     ---
+ 2     U Q.U1004             ---     ---     ---     ---     ---     ---
+ 3     G Q.G1005             ---     ---     ---     ---     ---     ---
+
+ 1     g R.GTA1003           ---     ---     ---     ---     ---     ---
+ 2     U R.U1004             ---     ---     ---     ---     ---     ---
+ 3     G R.G1005             ---     ---     ---     ---     ---     ---
+
+ 1     g S.GTA1003           ---     ---     ---     ---     ---     ---
+ 2     U S.U1004             ---     ---     ---     ---     ---     ---
+ 3     G S.G1005             ---     ---     ---     ---     ---     ---
+
+ 1     g T.GTA1003           ---     ---     ---     ---     ---     ---
+ 2     U T.U1004             ---     ---     ---     ---     ---     ---
+ 3     G T.G1005             ---     ---     ---     ---     ---     ---
+
+ 1     g U.GTA1003           ---     ---     ---     ---     ---     ---
+ 2     U U.U1004             ---     ---     ---     ---     ---     ---
+ 3     G U.G1005             ---     ---     ---     ---     ---     ---
+
+ 1     g V.GTA1003           ---     ---     ---     ---     ---     ---
+ 2     U V.U1004             ---     ---     ---     ---     ---     ---
+ 3     G V.G1005             ---     ---     ---     ---     ---     ---
+
+ 1     g W.GTA1003           ---     ---     ---     ---     ---     ---
+ 2     U W.U1004             ---     ---     ---     ---     ---     ---
+ 3     G W.G1005             ---     ---     ---     ---     ---     ---
+
+ 1     g X.GTA1003           ---     ---     ---     ---     ---     ---
+ 2     U X.U1004             ---     ---     ---     ---     ---     ---
+ 3     G X.G1005             ---     ---     ---     ---     ---     ---
+
+ 1     a A.SAH1002           ---     ---     ---     ---     ---     ---
+
+ 1     a B.SAH1002           ---     ---     ---     ---     ---     ---
+
+ 1     a C.SAH1002           ---     ---     ---     ---     ---     ---
+
+ 1     a D.SAH1002           ---     ---     ---     ---     ---     ---
+
+ 1     a E.SAH1002           ---     ---     ---     ---     ---     ---
+
+ 1     a F.SAH1002           ---     ---     ---     ---     ---     ---
+
+ 1     a G.SAH1002           ---     ---     ---     ---     ---     ---
+
+ 1     a H.SAH1002           ---     ---     ---     ---     ---     ---
+
+ 1     a I.SAH1002           ---     ---     ---     ---     ---     ---
+
+ 1     a J.SAH1002           ---     ---     ---     ---     ---     ---
+
+ 1     a K.SAH1002           ---     ---     ---     ---     ---     ---
+
+ 1     a L.SAH1002           ---     ---     ---     ---     ---     ---
+
+******************************************************************************************
+Sugar conformational parameters:
+
+  v0: C4'-O4'-C1'-C2'
+  v1: O4'-C1'-C2'-C3'
+  v2: C1'-C2'-C3'-C4'
+  v3: C2'-C3'-C4'-O4'
+  v4: C3'-C4'-O4'-C1'
+
+  tm: the amplitude of pucker
+  P:  the phase angle of pseudorotation
+    [Ref: Altona & Sundaralingam (1972): "Conformational analysis
+          of the sugar ring in nucleosides and nucleotides. A new
+          description using the concept of pseudorotation."
+          J Am Chem Soc, 94(23):8205-8212]
+
+          nt                 v0      v1      v2      v3      v4      tm      P   Puckering
+ 1     g M.GTA1003           ---     ---     ---     ---     ---     ---     ---  ---     
+ 2     U M.U1004           -19.5    34.4   -35.3    24.9    -3.6    36.3   166.9  C2'-endo
+ 3     G M.G1005             ---     ---     ---     ---     ---     ---     ---  ---     
+
+ 1     g N.GTA1003           ---     ---     ---     ---     ---     ---     ---  ---     
+ 2     U N.U1004           -19.5    34.4   -35.3    24.9    -3.6    36.2   166.8  C2'-endo
+ 3     G N.G1005             ---     ---     ---     ---     ---     ---     ---  ---     
+
+ 1     g O.GTA1003           ---     ---     ---     ---     ---     ---     ---  ---     
+ 2     U O.U1004           -19.5    34.3   -35.3    24.9    -3.5    36.2   166.8  C2'-endo
+ 3     G O.G1005             ---     ---     ---     ---     ---     ---     ---  ---     
+
+ 1     g P.GTA1003           ---     ---     ---     ---     ---     ---     ---  ---     
+ 2     U P.U1004           -19.5    34.4   -35.3    24.9    -3.6    36.3   166.8  C2'-endo
+ 3     G P.G1005             ---     ---     ---     ---     ---     ---     ---  ---     
+
+ 1     g Q.GTA1003           ---     ---     ---     ---     ---     ---     ---  ---     
+ 2     U Q.U1004           -19.5    34.3   -35.3    24.9    -3.6    36.2   166.8  C2'-endo
+ 3     G Q.G1005             ---     ---     ---     ---     ---     ---     ---  ---     
+
+ 1     g R.GTA1003           ---     ---     ---     ---     ---     ---     ---  ---     
+ 2     U R.U1004           -19.5    34.4   -35.3    24.9    -3.6    36.3   166.9  C2'-endo
+ 3     G R.G1005             ---     ---     ---     ---     ---     ---     ---  ---     
+
+ 1     g S.GTA1003           ---     ---     ---     ---     ---     ---     ---  ---     
+ 2     U S.U1004           -19.5    34.4   -35.3    24.9    -3.6    36.3   166.8  C2'-endo
+ 3     G S.G1005             ---     ---     ---     ---     ---     ---     ---  ---     
+
+ 1     g T.GTA1003           ---     ---     ---     ---     ---     ---     ---  ---     
+ 2     U T.U1004           -19.5    34.4   -35.3    24.9    -3.6    36.3   166.8  C2'-endo
+ 3     G T.G1005             ---     ---     ---     ---     ---     ---     ---  ---     
+
+ 1     g U.GTA1003           ---     ---     ---     ---     ---     ---     ---  ---     
+ 2     U U.U1004           -19.5    34.3   -35.3    24.9    -3.6    36.2   166.9  C2'-endo
+ 3     G U.G1005             ---     ---     ---     ---     ---     ---     ---  ---     
+
+ 1     g V.GTA1003           ---     ---     ---     ---     ---     ---     ---  ---     
+ 2     U V.U1004           -19.5    34.3   -35.3    24.9    -3.6    36.2   166.8  C2'-endo
+ 3     G V.G1005             ---     ---     ---     ---     ---     ---     ---  ---     
+
+ 1     g W.GTA1003           ---     ---     ---     ---     ---     ---     ---  ---     
+ 2     U W.U1004           -19.5    34.3   -35.2    24.8    -3.5    36.2   166.8  C2'-endo
+ 3     G W.G1005             ---     ---     ---     ---     ---     ---     ---  ---     
+
+ 1     g X.GTA1003           ---     ---     ---     ---     ---     ---     ---  ---     
+ 2     U X.U1004           -19.5    34.4   -35.3    24.9    -3.5    36.2   166.8  C2'-endo
+ 3     G X.G1005             ---     ---     ---     ---     ---     ---     ---  ---     
+
+ 1     a A.SAH1002         -32.3    24.6    -8.9    -9.5    26.2    31.4   106.5  O4'-endo
+
+ 1     a B.SAH1002         -32.3    24.7    -9.0    -9.5    26.2    31.4   106.6  O4'-endo
+
+ 1     a C.SAH1002         -32.3    24.6    -8.9    -9.6    26.2    31.4   106.5  O4'-endo
+
+ 1     a D.SAH1002         -32.3    24.6    -8.9    -9.6    26.2    31.4   106.5  O4'-endo
+
+ 1     a E.SAH1002         -32.3    24.6    -8.9    -9.6    26.2    31.4   106.4  O4'-endo
+
+ 1     a F.SAH1002         -32.3    24.6    -8.9    -9.5    26.2    31.4   106.5  O4'-endo
+
+ 1     a G.SAH1002         -32.3    24.6    -8.9    -9.6    26.2    31.4   106.5  O4'-endo
+
+ 1     a H.SAH1002         -32.3    24.6    -8.9    -9.6    26.2    31.4   106.5  O4'-endo
+
+ 1     a I.SAH1002         -32.3    24.6    -8.9    -9.5    26.2    31.4   106.5  O4'-endo
+
+ 1     a J.SAH1002         -32.3    24.6    -8.9    -9.5    26.2    31.4   106.5  O4'-endo
+
+ 1     a K.SAH1002         -32.3    24.6    -8.9    -9.6    26.2    31.4   106.4  O4'-endo
+
+ 1     a L.SAH1002         -32.3    24.6    -8.9    -9.6    26.2    31.4   106.5  O4'-endo
+
+******************************************************************************************
+Assignment of sugar-phosphate backbone suites
+
+  bin: name of the 12 bins based on [delta(i-1), delta, gamma], where
+       delta(i-1) and delta can be either 3 (for C3'-endo sugar) or 2
+       (for C2'-endo) and gamma can be p/t/m (for gauche+/trans/gauche-
+       conformations, respectively) (2x2x3=12 combinations: 33p, 33t,
+       ... 22m); 'inc' refers to incomplete cases (i.e., with missing
+       torsions), and 'trig' to triages (i.e., with torsion angle
+       outliers)
+  cluster: 2-char suite name, for one of 53 reported clusters (46
+           certain and 7 wannabes), '__' for incomplete cases, and
+           '!!' for outliers
+  suiteness: measure of conformer-match quality (low to high in range 0 to 1)
+
+    [Ref: Richardson et al. (2008): "RNA backbone: consensus all-angle
+          conformers and modular string nomenclature (an RNA Ontology
+          Consortium contribution)." RNA, 14(3):465-481]
+
+          nt             bin    cluster   suiteness
+ 1     g M.GTA1003       inc      __       0
+ 2     U M.U1004         inc      __       0
+ 3     G M.G1005         inc      __       0
+
+ 1     g N.GTA1003       inc      __       0
+ 2     U N.U1004         inc      __       0
+ 3     G N.G1005         inc      __       0
+
+ 1     g O.GTA1003       inc      __       0
+ 2     U O.U1004         inc      __       0
+ 3     G O.G1005         inc      __       0
+
+ 1     g P.GTA1003       inc      __       0
+ 2     U P.U1004         inc      __       0
+ 3     G P.G1005         inc      __       0
+
+ 1     g Q.GTA1003       inc      __       0
+ 2     U Q.U1004         inc      __       0
+ 3     G Q.G1005         inc      __       0
+
+ 1     g R.GTA1003       inc      __       0
+ 2     U R.U1004         inc      __       0
+ 3     G R.G1005         inc      __       0
+
+ 1     g S.GTA1003       inc      __       0
+ 2     U S.U1004         inc      __       0
+ 3     G S.G1005         inc      __       0
+
+ 1     g T.GTA1003       inc      __       0
+ 2     U T.U1004         inc      __       0
+ 3     G T.G1005         inc      __       0
+
+ 1     g U.GTA1003       inc      __       0
+ 2     U U.U1004         inc      __       0
+ 3     G U.G1005         inc      __       0
+
+ 1     g V.GTA1003       inc      __       0
+ 2     U V.U1004         inc      __       0
+ 3     G V.G1005         inc      __       0
+
+ 1     g W.GTA1003       inc      __       0
+ 2     U W.U1004         inc      __       0
+ 3     G W.G1005         inc      __       0
+
+ 1     g X.GTA1003       inc      __       0
+ 2     U X.U1004         inc      __       0
+ 3     G X.G1005         inc      __       0
+
+ 1     a A.SAH1002       inc      __       0
+
+ 1     a B.SAH1002       inc      __       0
+
+ 1     a C.SAH1002       inc      __       0
+
+ 1     a D.SAH1002       inc      __       0
+
+ 1     a E.SAH1002       inc      __       0
+
+ 1     a F.SAH1002       inc      __       0
+
+ 1     a G.SAH1002       inc      __       0
+
+ 1     a H.SAH1002       inc      __       0
+
+ 1     a I.SAH1002       inc      __       0
+
+ 1     a J.SAH1002       inc      __       0
+
+ 1     a K.SAH1002       inc      __       0
+
+ 1     a L.SAH1002       inc      __       0
+
+
+Concatenated suite string per chain. To avoid confusion of lower case
+modified nucleotide name (e.g., 'a') with suite cluster (e.g., '1a'),
+use --suite-delimiter to add delimiters (matched '()' by default).
+
+1   M DNA[2]/1* nts=3  g..U__G
+2   N DNA[2]/1* nts=3  g..U__G
+3   O DNA[2]/1* nts=3  g..U__G
+4   P DNA[2]/1* nts=3  g..U__G
+5   Q DNA[2]/1* nts=3  g..U__G
+6   R DNA[2]/1* nts=3  g..U__G
+7   S DNA[2]/1* nts=3  g..U__G
+8   T DNA[2]/1* nts=3  g..U__G
+9   U DNA[2]/1* nts=3  g..U__G
+10  V DNA[2]/1* nts=3  g..U__G
+11  W DNA[2]/1* nts=3  g..U__G
+12  X DNA[2]/1* nts=3  g..U__G
