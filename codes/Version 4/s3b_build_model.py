@@ -297,6 +297,7 @@ if __name__ == "__main__":
 
     # --- Step 5: Start Training ---
     print("\nStarting model training...")
+    training_start_time = time.time() # Timer Start
     model.fit(
         train_generator,
         epochs=params['epochs'],
@@ -304,5 +305,7 @@ if __name__ == "__main__":
         callbacks=callbacks,
         verbose=1
     )
+    training_end_time = time.time() # Timer End
 
     print("\n--- Supreme Model Training Complete ---")
+    print(f"Total training time: {training_end_time - training_start_time:.2f} seconds")

@@ -8,6 +8,7 @@ from tensorflow.keras.models import load_model
 from tensorflow.keras.optimizers import Adam
 from tensorflow.keras.callbacks import (ModelCheckpoint, EarlyStopping, TensorBoard)
 from s3b_build_model import DataGenerator, create_weighted_mse, PositionalEncoding
+import time
 
 # <<< FIX: Import from the correctly named s3_build_model.py script >>>
 from s3a_build_model import DataGenerator, create_weighted_mse
@@ -121,6 +122,7 @@ if __name__ == "__main__":
 
     # --- Step 6: Continue training on the NEW data ---
     print("\nStarting fine-tuning on the new dataset...")
+    training_start_time = time.time() # Timer Start
     history = model.fit(
         new_train_generator,
         epochs=inc_params['fine_tune_epochs'],
@@ -128,6 +130,7 @@ if __name__ == "__main__":
         callbacks=callbacks,
         verbose=1
     )
-
+    training_end_time = time.time() # Timer End
     print(f"\n--- Incremental Training Complete ---")
     print(f"The newly fine-tuned model has been saved to: {new_model_filepath}")
+    print(f"Total fine-tuning time: {training_end_time - training_start_time:.2f} seconds")

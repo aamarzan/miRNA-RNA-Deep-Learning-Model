@@ -20,6 +20,7 @@ from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score
 from scipy.stats import pearsonr
 import matplotlib.pyplot as plt
 import seaborn as sns
+import time
 
 # Import our custom components to load the model correctly
 from s3b_build_model import create_weighted_mse, PositionalEncoding
@@ -64,6 +65,7 @@ def load_test_data(data_path):
     return X_test, y_test
 
 def analyze_model_performance():
+    total_start_time = time.time() # Overall Timer Start
     print("--- Starting Model Evaluation and Visualization ---")
     
     config = load_config()
@@ -114,7 +116,10 @@ def analyze_model_performance():
         return
 
     print("\nStep 2: Evaluating model performance on the test set...")
+    predict_start_time = time.time() # Prediction Timer Start
     y_pred_transformed = model.predict(X_test, batch_size=eval_params.get('prediction_batch_size', 1024), verbose=1).ravel()
+    predict_end_time = time.time() # Prediction Timer End
+    print(f"  - Prediction on test set took: {predict_end_time - predict_start_time:.2f} seconds")
 
     # --- NEW: Apply inverse transform (square) to get real affinity scores ---
     print("  - Applying inverse transform (square) to predictions and test labels...")
@@ -238,9 +243,10 @@ def analyze_model_performance():
     plt.close()
     print("  - Saved error distribution plot.")
     
-    
+    total_end_time = time.time() # Overall Timer End
     print(f"\n  - All plots and metrics have been saved to the folder: '{plots_dir}'")
     print("\n--- Evaluation and Visualization Complete ---")
-
+    print(f"Total time for evaluation script: {total_end_time - total_start_time:.2f} seconds")
+    
 if __name__ == "__main__":
     analyze_model_performance()

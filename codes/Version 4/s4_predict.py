@@ -21,6 +21,8 @@ import tensorflow as tf
 import warnings
 import pyarrow as pa
 import pyarrow.parquet as pq
+from tqdm import tqdm
+import time
 
 # Import our definitive processors and custom objects from other project scripts
 from molecule_processors import process_molecule_universal
@@ -109,6 +111,7 @@ def load_fasta_from_folder(folder_path):
     return records
 
 def main():
+    total_start_time = time.time() # Overall Timer Start
     print("--- Universal Molecule Ranking Tool (with Sliding Window Support) ---")
     config = load_config()
     pred_params = config['prediction_parameters']
@@ -192,7 +195,8 @@ def main():
     results = []
     model_input_names = list(model.input.keys())
 
-    for i, primary_record in enumerate(primary_records):
+    # ⭐ NEW: Wrap the main loop with tqdm
+    for primary_record in tqdm(primary_records, desc="  Predicting affinities"):
         primary_processed = process_molecule_universal(((primary_record.id, str(primary_record.seq)), config, 'primary_molecule'))
         
         # --- NEW: Predict against each chunk and aggregate ---
@@ -222,6 +226,9 @@ def main():
         print(f"  - Processed {i+1}/{len(primary_records)}...", end='\r')
 
     print("\n\n--- Prediction Complete ---")
+    total_end_time = time.time() # Overall Timer End
+    print(f"Total prediction time: {total_end_time - total_start_time:.2f} seconds")
+    
     
     # --- 8. Save and display results ---
     if results:
