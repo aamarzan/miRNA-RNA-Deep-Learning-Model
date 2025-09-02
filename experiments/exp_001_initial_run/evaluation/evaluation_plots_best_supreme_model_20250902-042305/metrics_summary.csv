@@ -1,0 +1,14 @@
+Metric,Value
+R2,0.529741
+Symmetric R2,0.105922
+Pearson r,0.805183
+Spearman ρ,0.694971
+Lin's CCC,0.671655
+RMSE,0.323434
+MAE,0.241259
+Median AE,0.337401
+MAPE (%),40.801039
+sMAPE (%),71.841329
+Bias (pred-true),-0.129496
+RPD,1.458262
+Harrell's C,0.804863

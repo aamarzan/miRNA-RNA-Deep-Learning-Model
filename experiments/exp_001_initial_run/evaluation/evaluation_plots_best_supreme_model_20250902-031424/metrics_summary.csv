@@ -1,0 +1,9 @@
+Metric,Value
+R2,0.529741
+Pearson r,0.805183
+Spearman ρ,0.694971
+RMSE,0.323434
+MAE,0.241259
+Median AE,0.337401
+MAPE (%),5447883600.000000
+Concordance Index,0.804863

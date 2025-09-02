@@ -41,7 +41,7 @@
         "_comment": "Parameters for Stage 1 (s1_prepare_dataset.py).",
         "enable_pdb_processing": true,
         "focus_on_target_region": false,
-        "downsampling_ratio_unknown_to_known": 0.95,
+        "downsampling_ratio_unknown_to_known": 0.0,
         "target_region_name": "My_ROI",
         "target_region_slice": [90, 150],
         "sliding_window": {
@@ -103,8 +103,8 @@
         "advanced_training": {
             "use_sample_weighting": true,
             "sample_weight_alpha": 15.0,
-            "use_custom_loss": true,
-            "custom_loss_pos_weight": 10.0,
+            "use_custom_loss": false,
+            "custom_loss_pos_weight": 2.0,
             "early_stopping_patience": 10
         }
     },

@@ -1,0 +1,71 @@
+
+<!doctype html>
+<html lang='en'>
+<head>
+<meta charset='utf-8'>
+<meta name='viewport' content='width=device-width, initial-scale=1'>
+<title>Evaluation Report — best_supreme_model</title>
+<style>
+ body { font-family: DejaVu Sans, system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, 'Helvetica Neue', sans-serif; margin: 0; background: #0b1020; color: #eef1f5; }
+ header { padding: 24px 32px; background: linear-gradient(135deg,#0b1020 0%,#1b2a4a 60%,#0b1020 100%); box-shadow: 0 2px 0 rgba(255,255,255,.05) inset; }
+ h1 { margin: 0; font-size: 28px; letter-spacing: .3px; }
+ .wrap { padding: 24px; }
+ .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 18px; }
+ .card { background: rgba(255,255,255,.04); border: 1px solid rgba(255,255,255,.08); border-radius: 16px; padding: 12px; box-shadow: 0 6px 30px rgba(0,0,0,.35); }
+ .card h3 { font-weight: 600; font-size: 15px; margin: 6px 4px 10px; color: #cfe2ff; }
+ .card img { width: 100%; height: auto; border-radius: 10px; display:block; }
+ .meta { margin-top: 6px; opacity: .8; font-size: 14px; }
+ table { width: 100%; border-collapse: collapse; margin: 12px 0 22px; }
+ th, td { border-bottom: 1px dashed rgba(255,255,255,.15); padding: 6px 8px; text-align: left; }
+ .metrics { background: rgba(255,255,255,.03); border-radius: 12px; padding: 12px; }
+ a.link { color: #9ad1ff; }
+ .cols { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 18px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Evaluation Report — best_supreme_model</h1>
+  <div class='meta'>Generated: 20250902-042846 | Experiment: exp_001_initial_run | Mode: quick</div>
+</header>
+<div class='wrap'>
+  <section class='metrics'>
+    <h2>Summary Metrics</h2>
+    <table>
+      <thead><tr><th>Metric</th><th>Value</th></tr></thead>
+      <tbody>
+        <tr><td>R2</td><td>0.529741</td></tr><tr><td>Symmetric R2</td><td>0.105922</td></tr><tr><td>Pearson r</td><td>0.805183</td></tr><tr><td>Spearman ρ</td><td>0.694971</td></tr><tr><td>Lin's CCC</td><td>0.671655</td></tr><tr><td>RMSE</td><td>0.323434</td></tr><tr><td>MAE</td><td>0.241259</td></tr><tr><td>Median AE</td><td>0.337401</td></tr><tr><td>MAPE (%)</td><td>40.801039</td></tr><tr><td>sMAPE (%)</td><td>71.841329</td></tr><tr><td>Bias (pred-true)</td><td>-0.129496</td></tr><tr><td>RPD</td><td>1.458262</td></tr><tr><td>Harrell's C</td><td>0.804863</td></tr>
+      </tbody>
+    </table>
+    <h3>Bootstrap Confidence Intervals</h3>
+    <table>
+      <thead><tr><th>Metric</th><th>2.5%</th><th>Mean</th><th>97.5%</th></tr></thead>
+      <tbody>
+        <tr><td>RMSE</td><td>0.3220</td><td>0.3235</td><td>0.3252</td></tr><tr><td>MAE</td><td>0.2395</td><td>0.2413</td><td>0.2433</td></tr><tr><td>R2</td><td>0.5247</td><td>0.5297</td><td>0.5341</td></tr><tr><td>Pearson r</td><td>0.8005</td><td>0.8053</td><td>0.8097</td></tr>
+      </tbody>
+    </table>
+    <div class='cols'>
+      <div>
+        <h3>Conformal Coverage (Split)</h3>
+        <table>
+          <thead><tr><th>Nominal</th><th>Empirical</th></tr></thead>
+          <tbody>
+            <tr><td>0.99</td><td>0.99</td></tr><tr><td>0.98</td><td>0.98</td></tr><tr><td>0.97</td><td>0.97</td></tr><tr><td>0.96</td><td>0.96</td></tr><tr><td>0.95</td><td>0.95</td></tr><tr><td>0.94</td><td>0.94</td></tr><tr><td>0.93</td><td>0.93</td></tr><tr><td>0.92</td><td>0.92</td></tr><tr><td>0.91</td><td>0.91</td></tr><tr><td>0.90</td><td>0.90</td></tr><tr><td>0.89</td><td>0.89</td></tr><tr><td>0.88</td><td>0.88</td></tr><tr><td>0.87</td><td>0.87</td></tr><tr><td>0.86</td><td>0.86</td></tr><tr><td>0.85</td><td>0.85</td></tr><tr><td>0.84</td><td>0.84</td></tr><tr><td>0.83</td><td>0.83</td></tr><tr><td>0.82</td><td>0.82</td></tr><tr><td>0.81</td><td>0.81</td></tr><tr><td>0.80</td><td>0.80</td></tr><tr><td>0.79</td><td>0.79</td></tr><tr><td>0.78</td><td>0.78</td></tr><tr><td>0.77</td><td>0.77</td></tr><tr><td>0.76</td><td>0.76</td></tr><tr><td>0.75</td><td>0.75</td></tr><tr><td>0.74</td><td>0.74</td></tr><tr><td>0.73</td><td>0.73</td></tr><tr><td>0.72</td><td>0.72</td></tr><tr><td>0.71</td><td>0.71</td></tr><tr><td>0.70</td><td>0.70</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div>
+        <h3>Interactive Figures</h3>
+        <div><a class='link' href='interactive/pred_vs_actual.html'>Pred vs Actual (interactive)</a></div>
+        <div><a class='link' href='interactive/residuals_vs_pred.html'>Residuals vs Pred (interactive)</a></div>
+      </div>
+    </div>
+  </section>
+  <section>
+    <h2>Figures</h2>
+    <div class='grid'>
+      <div class='card'><h3>01_correlation_density</h3><img src='figures/01_correlation_density.png' loading='lazy'></div><div class='card'><h3>02_training_history</h3><img src='figures/02_training_history.png' loading='lazy'></div><div class='card'><h3>03_residuals_analysis</h3><img src='figures/03_residuals_analysis.png' loading='lazy'></div><div class='card'><h3>04_qq_plot</h3><img src='figures/04_qq_plot.png' loading='lazy'></div><div class='card'><h3>05_bland_altman</h3><img src='figures/05_bland_altman.png' loading='lazy'></div><div class='card'><h3>06_error_by_bins_violin</h3><img src='figures/06_error_by_bins_violin.png' loading='lazy'></div><div class='card'><h3>07_distribution_true_vs_pred</h3><img src='figures/07_distribution_true_vs_pred.png' loading='lazy'></div><div class='card'><h3>08_calibration_curve_plus</h3><img src='figures/08_calibration_curve_plus.png' loading='lazy'></div><div class='card'><h3>09_conformal_empirical_band</h3><img src='figures/09_conformal_empirical_band.png' loading='lazy'></div><div class='card'><h3>09b_conformal_coverage_curve</h3><img src='figures/09b_conformal_coverage_curve.png' loading='lazy'></div><div class='card'><h3>10_cumulative_abs_error</h3><img src='figures/10_cumulative_abs_error.png' loading='lazy'></div><div class='card'><h3>11_ecdf_abs_error</h3><img src='figures/11_ecdf_abs_error.png' loading='lazy'></div><div class='card'><h3>12_taylor_diagram</h3><img src='figures/12_taylor_diagram.png' loading='lazy'></div><div class='card'><h3>13_rank_order_ribbon</h3><img src='figures/13_rank_order_ribbon.png' loading='lazy'></div><div class='card'><h3>14_topK_worst_errors</h3><img src='figures/14_topK_worst_errors.png' loading='lazy'></div><div class='card'><h3>15_residual_landscape</h3><img src='figures/15_residual_landscape.png' loading='lazy'></div><div class='card'><h3>16_rolling_mae_curve</h3><img src='figures/16_rolling_mae_curve.png' loading='lazy'></div>
+    </div>
+  </section>
+</div>
+</body>
+</html>
