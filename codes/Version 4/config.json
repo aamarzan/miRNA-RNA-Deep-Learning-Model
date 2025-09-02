@@ -59,11 +59,11 @@
         "max_gc_content": 0.90
     },
     "data_processing": {
-        "batch_size_parquet": 256
+        "batch_size_parquet": 1000
     },
     "dataset_splitting": {
         "_comment": "Parameters for Stage 1b (s1b_split_dataset.py).",
-        "number_of_parts": 20,
+        "number_of_parts": 100,
         "input_filename": ""
     },
     "training_parameters": {
