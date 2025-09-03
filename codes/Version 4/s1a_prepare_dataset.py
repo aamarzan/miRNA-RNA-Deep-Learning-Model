@@ -208,20 +208,30 @@ def prepare_dataset(config):
     
     print(f"  - Created a balanced primary molecule set of {len(balanced_primary_molecules)} total entries.")
 
-    print("\nStep 4: Augmenting the Balanced Dataset with Scores")
+    print("\nStep 4: Augmenting Datasets with Scores and Random Low Affinity")
 
-    for molecule_data in balanced_primary_molecules:
+    # First, augment the KNOWN molecules with their real scores
+    for molecule_data in known_primary_molecules:
         molecule_id = molecule_data['id']
-        
-        # Assign affinity (will be 0.0 for the subsampled unknowns)
         molecule_data['affinity'] = data_sources.get('affinity', {}).get(molecule_id, 0.0)
-        
-        # Assign conservation and family ID
+        mirna_family_match = re.search(r"hsa-mir-\d+[a-z]?", molecule_id.lower())
+        mirna_family_name = mirna_family_match.group(0) if mirna_family_match else molecule_id.lower()
+        molecule_data['conservation'] = data_sources.get('conservation', {}).get(mirna_family_name, 0.0)
+
+    # ⭐ NEW: Now, augment the UNKNOWN subsample with random low affinity scores
+    for molecule_data in unknown_subsample:
+        molecule_id = molecule_data['id']
+        # Assign a random score between 0.0 and 0.15
+        molecule_data['affinity'] = random.uniform(0.0, 0.15)
+        # Assign conservation score if available, otherwise 0.0
         mirna_family_match = re.search(r"hsa-mir-\d+[a-z]?", molecule_id.lower())
         mirna_family_name = mirna_family_match.group(0) if mirna_family_match else molecule_id.lower()
         molecule_data['conservation'] = data_sources.get('conservation', {}).get(mirna_family_name, 0.0)
 
     print("  - Augmentation complete.")
+
+    # Recombine into the final balanced set
+    balanced_primary_molecules = known_primary_molecules + unknown_subsample
 
     print("\nStep 5: Preparing Final Competitor List...")
     null_competitor = {'id': 'NO_COMPETITOR', 'sequence': '', 'original_sequence': '', 'gc_content': 0.0, 'dg': 0.0, 'structure_vector': '[]', 'adjacency_matrix': '[]'}

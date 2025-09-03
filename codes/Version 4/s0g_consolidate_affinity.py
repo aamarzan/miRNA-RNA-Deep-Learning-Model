@@ -1,8 +1,8 @@
-# s0f_consolidate_affinity.py
+# s0f_consolidate_affinity.py (UPGRADED VERSION)
 # PURPOSE:
 # To read all raw affinity score files, handle duplicates for each miRNA by
-# both averaging and taking the minimum score, and save two new master
-# affinity files.
+# calculating mean, min, and multiple percentiles, and save a separate master
+# affinity file for each consolidation method.
 
 import os
 import json
@@ -22,8 +22,8 @@ def load_config(config_path=None):
 
 def consolidate_affinity_scores():
     """
-    Reads all raw affinity files, aggregates scores by miRNA ID using mean and min,
-    and saves two separate master files.
+    Reads all raw affinity files, aggregates scores by miRNA ID using multiple
+    methods, and saves a separate master file for each.
     """
     print("--- Starting Master Affinity Score Consolidation ---")
     config = load_config()
@@ -31,13 +31,10 @@ def consolidate_affinity_scores():
     # 1. Define input and output paths from config
     project_root = config.get('project_root')
     raw_data_folder = os.path.join(project_root, 'dataset', 'raw_data')
-    
-    # User-specified directories
     input_folder = os.path.join(raw_data_folder, 'affinity_score', 'good')
     output_folder = os.path.join(raw_data_folder, 'affinity_score', 'select')
     os.makedirs(output_folder, exist_ok=True)
     
-    # Get column names from config for consistency
     id_col_name = config['data_sources']['affinity']['id_col']
     score_col_name = config['data_sources']['affinity']['score_col']
 
@@ -56,19 +53,15 @@ def consolidate_affinity_scores():
         sep = '\t' if filepath.lower().endswith(('.tsv', '.txt')) else ','
         try:
             df = pd.read_csv(filepath, sep=sep, comment='#', low_memory=False)
-            
-            # Find the actual ID and score column names in the dataframe
             actual_id_col = next((col for col in df.columns if col.lower() == id_col_name.lower()), None)
             actual_score_col = next((col for col in df.columns if col.lower() == score_col_name.lower()), None)
 
             if actual_id_col and actual_score_col:
-                # Keep only the necessary columns and standardize their names
                 temp_df = df[[actual_id_col, actual_score_col]].copy()
                 temp_df.columns = ['miRNA_ID', 'affinity_score']
                 all_dfs.append(temp_df)
             else:
                 print(f"  - ⚠️ WARNING: Could not find required columns in file: {filename}")
-
         except Exception as e:
             print(f"  - ⚠️ WARNING: Failed to process file {filename}. Error: {e}")
 
@@ -79,28 +72,46 @@ def consolidate_affinity_scores():
     master_df = pd.concat(all_dfs, ignore_index=True)
     master_df['affinity_score'] = pd.to_numeric(master_df['affinity_score'], errors='coerce')
     master_df.dropna(inplace=True)
-    
     print(f"  - Combined {len(master_df)} total records from all files.")
 
-    # 3. Aggregate the scores by miRNA ID
-    print("  - Aggregating scores for duplicate miRNAs...")
-    # Use groupby().agg() to calculate mean and min in one pass
-    aggregated_df = master_df.groupby('miRNA_ID')['affinity_score'].agg(['mean', 'min']).reset_index()
+    # 3. ⭐ NEW: Define all aggregations, including percentiles
+    print("  - Aggregating scores for duplicate miRNAs using multiple methods...")
+    
+    # Define the percentiles you want to calculate
+    #percentiles_to_calc = [0.05, 0.1, 0.15, 0.2, 0.25, 0.3, 0.35, 0.4, 0.45, 0.55, 0.60, 0.65, 0.70, 0.75, 0.80, 0.85, 0.90, 0.95]
+    percentiles_to_calc = [0.25, 0.75]
+    
+    # Create a dictionary of aggregation functions
+    aggregations = {
+        'mean': 'mean',
+        'min': 'min'
+    }
+    for p in percentiles_to_calc:
+        # Use a lambda function to calculate each quantile (percentile)
+        # The p=p trick is important to correctly capture the value in the lambda
+        aggregations[f'p{int(p*100)}'] = lambda x, p=p: x.quantile(p)
+
+    # Calculate all aggregations in a single pass for efficiency
+    aggregated_df = master_df.groupby('miRNA_ID')['affinity_score'].agg(**aggregations).reset_index()
     print(f"  - Processed into {len(aggregated_df)} unique miRNA entries.")
 
-    # 4. Save the 'Averaging' results
-    average_df = aggregated_df[['miRNA_ID', 'mean']].copy()
-    average_df.rename(columns={'miRNA_ID': id_col_name, 'mean': score_col_name}, inplace=True)
-    avg_output_path = os.path.join(output_folder, 'Master_Affinity_Scores_Average.txt')
-    average_df.to_csv(avg_output_path, sep='\t', index=False, float_format='%.6f')
-    print(f"✅ Success! Master file with AVERAGED scores saved to:\n   {avg_output_path}")
-
-    # 5. Save the 'Lowest' results
-    lowest_df = aggregated_df[['miRNA_ID', 'min']].copy()
-    lowest_df.rename(columns={'miRNA_ID': id_col_name, 'min': score_col_name}, inplace=True)
-    low_output_path = os.path.join(output_folder, 'Master_Affinity_Scores_Lowest.txt')
-    lowest_df.to_csv(low_output_path, sep='\t', index=False, float_format='%.6f')
-    print(f"✅ Success! Master file with LOWEST scores saved to:\n   {low_output_path}")
+    # 4. ⭐ NEW: Loop through the results and save a file for each aggregation
+    print("\n--- Saving Master Files for Each Consolidation Method ---")
+    
+    # Loop through all calculated columns (mean, min, p55, p60, etc.)
+    for agg_name in aggregated_df.columns:
+        if agg_name == 'miRNA_ID':
+            continue # Skip the ID column
+            
+        # Create a new dataframe for the current aggregation method
+        output_df = aggregated_df[['miRNA_ID', agg_name]].copy()
+        output_df.rename(columns={'miRNA_ID': id_col_name, agg_name: score_col_name}, inplace=True)
+        
+        # Define the output path and save the file
+        output_filename = f'Master_Affinity_Scores_{agg_name.capitalize()}.txt'
+        output_path = os.path.join(output_folder, output_filename)
+        output_df.to_csv(output_path, sep='\t', index=False, float_format='%.6f')
+        print(f"  ✅ Saved: {output_filename}")
 
 
 if __name__ == "__main__":
