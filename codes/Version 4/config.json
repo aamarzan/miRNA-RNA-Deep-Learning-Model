@@ -63,7 +63,7 @@
     },
     "dataset_splitting": {
         "_comment": "Parameters for Stage 1b (s1b_split_dataset.py).",
-        "number_of_parts": 100,
+        "number_of_parts": 4,
         "input_filename": ""
     },
     "training_parameters": {
@@ -104,7 +104,7 @@
             "use_sample_weighting": true,
             "sample_weight_alpha": 15.0,
             "use_custom_loss": false,
-            "custom_loss_pos_weight": 2.0,
+            "custom_loss_pos_weight": 1.5,
             "early_stopping_patience": 10
         }
     },
