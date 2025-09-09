@@ -173,6 +173,7 @@ def analyze_model_performance():
     residuals = y_test - y_pred
     
     
+    
     # Plot 3: Residuals Plot
     # Shows if errors are randomly distributed or have a pattern.
     plt.figure(figsize=(10, 7))
