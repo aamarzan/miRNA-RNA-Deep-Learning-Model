@@ -229,7 +229,6 @@ def main():
     total_end_time = time.time() # Overall Timer End
     print(f"Total prediction time: {total_end_time - total_start_time:.2f} seconds")
     
-    
     # --- 8. Save and display results ---
     if results:
         results_df = pd.DataFrame(results).sort_values(by='competitive_effect (higher_is_better)', ascending=False)
