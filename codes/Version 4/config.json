@@ -53,7 +53,7 @@
         "max_mirna_len": 200,
         "min_target_len": 20,
         "max_target_len": 2500,
-        "min_competitor_len": 20,
+        "min_competitor_len": 40,
         "max_competitor_len": 2500,
         "min_gc_content": 0.20,
         "max_gc_content": 0.90
