@@ -7,6 +7,7 @@ import json
 
 # <<< CHANGE: No more hard-coded configuration here. >>>
 
+
 # --- Configuration Loader ---
 def load_config(config_path=None):
     if config_path is None:
