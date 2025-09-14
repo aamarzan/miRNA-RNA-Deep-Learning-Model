@@ -1,7 +1,7 @@
 {
     "_comment_project": "This file is the central control panel for the entire data preparation pipeline.",
     "experiment_id": "exp_001_initial_run",
-    "project_root": "E:/1. miRNA-RNA-Deep-Learning-Model",
+    "project_root": "E:1. Github/1. miRNA-RNA-Deep-Learning-Model",
     "file_paths": {
         "codon_table": "dataset/raw_data/codon_tables/human_codon_usage.txt"
     },
