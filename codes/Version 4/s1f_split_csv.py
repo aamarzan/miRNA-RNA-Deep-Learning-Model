@@ -60,5 +60,5 @@ else:
             chunk_df.to_csv(conversion_folder / part_filename, index=False)
             print(f"✅ Saved: {part_filename}")
         
-    print("🎯 Splitting complete!")
+    print("🎯 Splitting done!")
 
