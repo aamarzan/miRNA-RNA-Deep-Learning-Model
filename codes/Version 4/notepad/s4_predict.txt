@@ -223,7 +223,7 @@ def main():
             'predicted_affinity_with_competitor': float(pred_with_comp),
             'competitive_effect (higher_is_better)': float(pred_no_comp - pred_with_comp),
         })
-        print(f"  - Processed {i+1}/{len(primary_records)}...", end='\r')
+        tqdm.write(f"  - Processed {primary_record.id}")
 
     print("\n\n--- Prediction Complete ---")
     total_end_time = time.time() # Overall Timer End

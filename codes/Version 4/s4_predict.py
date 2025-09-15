@@ -223,7 +223,7 @@ def main():
             'predicted_affinity_with_competitor': float(pred_with_comp),
             'competitive_effect (higher_is_better)': float(pred_no_comp - pred_with_comp),
         })
-        print(f"  - Processed {i+1}/{len(primary_records)}...", end='\r')
+        tqdm.write(f"  - Processed {primary_record.id}")
 
     print("\n\n--- Prediction Complete ---")
     total_end_time = time.time() # Overall Timer End
@@ -233,7 +233,7 @@ def main():
     if results:
         results_df = pd.DataFrame(results).sort_values(by='competitive_effect (higher_is_better)', ascending=False)
         output_path = os.path.join(prediction_dir, pred_params['output_filename'])
-        pq.write_table(pa.Table.from_pandas(results_df, preserve_index=False), output_path)
+        results_df.to_excel(output_path, index=False)
         print(f"Ranked results saved to '{output_path}'")
         print("\n--- Top 10 Candidates (Ranked by Competitive Effect) ---")
         print(results_df.head(10).to_string(index=False, float_format='%.4f'))
