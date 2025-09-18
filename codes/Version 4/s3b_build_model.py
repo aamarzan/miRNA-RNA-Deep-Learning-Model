@@ -344,7 +344,9 @@ if __name__ == "__main__":
         EarlyStopping(monitor='val_loss', patience=adv_params.get('early_stopping_patience', 10), mode='min', restore_best_weights=True),
         ReduceLROnPlateau(monitor='val_loss', factor=0.2, patience=5, min_lr=1e-6),
         TensorBoard(log_dir=log_dir),
-        HistoryLogger(filepath=history_filepath) # Our custom history saver
+        HistoryLogger(filepath=history_filepath), # Our custom history saver
+        LivePlotCallback(save_dir=logs_dir),  # <-- inserted here
+        ValidationSampleCallback(val_gen=test_generator, save_dir=logs_dir)  # <-- inserted here
     ]
     print(f"  - Model checkpoints will be saved to: {model_filepath}")
     print(f"  - TensorBoard logs will be saved to: {log_dir}")
