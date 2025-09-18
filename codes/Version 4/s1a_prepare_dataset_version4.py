@@ -1,4 +1,4 @@
-# s1_prepare_dataset.py (Final, unbiased, pairwise-label version — structure preserved)
+# s1_prepare_dataset.py (Definitive, Final Corrected Version)
 import os
 import pandas as pd
 from Bio import SeqIO
@@ -13,11 +13,7 @@ import pyarrow as pa
 import pyarrow.parquet as pq
 import random
 
-# Reproducibility
-random.seed(42)
-np.random.seed(42)
-
-# --- Import the processors library ---
+# --- Import the new processors library ---
 from molecule_processors import PROCESSOR_MAP
 
 # --- Configuration Loader ---
@@ -26,6 +22,8 @@ def load_config(config_path=None):
         # Looks for config.json in the same directory as the script.
         script_dir = os.path.dirname(os.path.realpath(__file__))
         config_path = os.path.join(script_dir, 'config.json')
+    
+    #print(f"--- Loading configuration from: {config_path} ---")
     try:
         with open(config_path, 'r') as f:
             return json.load(f)
@@ -45,26 +43,28 @@ def load_data_from_fasta(folder_path):
         try:
             for record in SeqIO.parse(filepath, "fasta"):
                 data_dict[record.id] = str(record.seq)
-        except Exception:
-            pass
+        except Exception: pass
     return data_dict
 
 def run_id_matching_diagnostics(mirna_data, affinity_data):
     """
     Cleans complex IDs and provides a detailed report on the match rate between
-    miRNA sequences and affinity family/score priors.
+    miRNA sequences and affinity scores.
     """
     print("\n--- Running ID Matching Diagnostics ---")
     if not mirna_data or not affinity_data:
         print("  - Skipping diagnostics: miRNA or affinity data not loaded.")
         return
 
+    # Normalize keys by stripping whitespace AND taking the first part of the ID
+    # This handles complex headers like '>id extra info'
     def normalize_id(key):
         return key.strip().split()[0]
 
     mirna_ids = {normalize_id(k) for k in mirna_data.keys()}
     affinity_ids = {normalize_id(k) for k in affinity_data.keys()}
 
+    # Find matches and mismatches using set operations
     matched_ids = mirna_ids.intersection(affinity_ids)
     affinity_only_ids = affinity_ids - mirna_ids
     mirna_only_ids = mirna_ids - affinity_ids
@@ -79,7 +79,7 @@ def run_id_matching_diagnostics(mirna_data, affinity_data):
     
     if mirna_only_ids:
         print(f"\nNOTE: {len(mirna_only_ids)} miRNAs have sequences but NO affinity score.")
-        print(f"  (They won’t get random labels anymore; pairwise labels will be computed.)")
+        print(f"  (These will be assigned a default score of 0.0. Example IDs: {list(mirna_only_ids)[:5]})")
     
     print("---------------------------------------")
 
@@ -96,72 +96,6 @@ def load_scores(folder_path, id_col, score_col, file_type_name):
         except Exception as e:
             print(f"    - Error loading score file {filepath}: {e}")
     return data_dict
-
-# --- New proxy-label helpers (pairwise + competitor effect) ---
-def seed_match_score(mirna_u, target_u):
-    m = (mirna_u or "").replace('T','U').upper()
-    t = (target_u or "").replace('T','U').upper()
-    if len(m) < 8 or len(t) < 8:
-        return 0.0, 0
-    seed = m[1:8]  # positions 2–8
-    comp = str.maketrans('AUGC', 'UACG')
-    seed_comp = seed.translate(comp)
-    best = 0
-    best_pos = 0
-    for i in range(0, len(t) - 6):
-        window = t[i:i+7]
-        matches = sum(1 for a,b in zip(seed_comp, window) if a == b)
-        if matches > best:
-            best = matches
-            best_pos = i
-    return best / 7.0, best_pos
-
-def gc_strength_score(mirna_u, target_u, start_pos):
-    m = (mirna_u or "").replace('T','U').upper()
-    t = (target_u or "").replace('T','U').upper()
-    if len(m) < 8 or start_pos + 7 > len(t):
-        return 0.0
-    seed = m[1:8]
-    comp = str.maketrans('AUGC', 'UACG')
-    seed_comp = seed.translate(comp)
-    window = t[start_pos:start_pos+7]
-    score = 0.0
-    for a, b in zip(seed_comp, window):
-        if a == b:
-            score += 1.0 if a in ('G','C') else 0.6
-    return score / 7.0
-
-def accessibility_score(dot_bracket_json, start_pos, length=7):
-    try:
-        vec = json.loads(dot_bracket_json or "[]")
-    except Exception:
-        vec = []
-    if not vec or start_pos + length > len(vec):
-        return 0.0
-    # encoded: . -> 0 (unpaired), ( -> 1, ) -> -1
-    unpaired = sum(1 for v in vec[start_pos:start_pos+length] if v == 0)
-    return unpaired / float(length)
-
-def normalize_01(x, lo=0.0, hi=1.0):
-    if hi <= lo:
-        return 0.0
-    v = (x - lo) / (hi - lo)
-    return max(0.0, min(1.0, v))
-
-def competitor_propensity_score(comp_seq_u, target_u):
-    c = (comp_seq_u or "").replace('T','U').upper()
-    t = (target_u or "").replace('T','U').upper()
-    if len(c) < 7 or len(t) < 7:
-        return 0.0
-    best = 0
-    comp = str.maketrans('AUGC', 'UACG')
-    for i in range(0, len(c) - 6):
-        w_comp = c[i:i+7].translate(comp)
-        for j in range(0, len(t) - 6):
-            matches = sum(1 for a,b in zip(w_comp, t[j:j+7]) if a == b)
-            if matches > best:
-                best = matches
-    return best / 7.0
 
 # --- Main Dataset Preparation Function ---
 def prepare_dataset(config):
@@ -191,7 +125,7 @@ def prepare_dataset(config):
     processed_data = {}
     exp_setup = config['experiment_setup']
     
-    # Sliding window parameters from config
+    # --- NEW: Get window parameters from config ---
     sw_params = PARAMS.get('sliding_window', {})
     use_sw = sw_params.get('use_sliding_window', False)
     window_size = sw_params.get('window_size', 500)
@@ -209,7 +143,7 @@ def prepare_dataset(config):
         print(f"  - Processing {role} ({molecule_type})...")
         raw_molecules = data_sources[role_key]
         
-        # Apply sliding window to target if enabled
+        # --- NEW: Apply sliding window logic to generate chunks ---
         processed_molecules = []
         for mol_id, seq in raw_molecules.items():
             if use_sw and role == 'target_molecule' and len(seq) > window_size:
@@ -221,8 +155,9 @@ def prepare_dataset(config):
                     num_chunks += 1
                 print(f"    - Sliced target {mol_id} (len {len(seq)}) into {num_chunks} chunks of size {window_size}", end='\r')
             else:
+                # If not using sliding window or sequence is too short, use it as is
                 processed_molecules.append((mol_id, seq))
-        if use_sw: print() # newline after slicing messages
+        if use_sw: print() # Newline after slicing messages
         
         processor_func = PROCESSOR_MAP.get(molecule_type)
         if not processor_func: continue
@@ -248,34 +183,55 @@ def prepare_dataset(config):
 
     for molecule_data in primary_molecules:
         molecule_id = molecule_data['id']
+        # Check if a score exists for this molecule
         if data_sources.get('affinity', {}).get(molecule_id) is not None:
             known_primary_molecules.append(molecule_data)
         else:
             unknown_primary_molecules.append(molecule_data)
             
-    print(f"  - Found {len(known_primary_molecules)} molecules with family prior scores.")
-    print(f"  - Found {len(unknown_primary_molecules)} molecules with no prior (will be down-sampled).")
+    print(f"  - Found {len(known_primary_molecules)} molecules with known affinity scores.")
+    print(f"  - Found {len(unknown_primary_molecules)} molecules with unknown affinity (will be down-sampled).")
 
-    # Down-sample unknowns to balance compute
-    ratio = PARAMS.get('downsampling_ratio_unknown_to_known', 1.0)
+    # --- NEW: Down-sampling the Unknowns using a configurable ratio ---
+    ratio = PARAMS.get('downsampling_ratio_unknown_to_known', 1.0) # Default to 1.0 if not in config
     num_known = len(known_primary_molecules)
-    num_unknown_to_keep = min(len(unknown_primary_molecules), int(max(1, num_known) * ratio))
+    num_unknown_to_keep = min(len(unknown_primary_molecules), int(num_known * ratio))
 
     print(f"\nDown-sampling unknowns from {len(unknown_primary_molecules)} to {num_unknown_to_keep} (Known:Unknown Ratio ≈ 1:{ratio})...")
+    
+    # Randomly sample the unknowns
     unknown_subsample = random.sample(unknown_primary_molecules, num_unknown_to_keep)
-
+    
+    # Recombine into a new, balanced list of primary molecules
     balanced_primary_molecules = known_primary_molecules + unknown_subsample
-    random.shuffle(balanced_primary_molecules)
+    random.shuffle(balanced_primary_molecules) # Shuffle the final list
+    
     print(f"  - Created a balanced primary molecule set of {len(balanced_primary_molecules)} total entries.")
 
-    print("\nStep 4: Augmenting datasets with conservation (no random labels)")
-    # Only set conservation on primary molecules; do NOT set 'affinity' here anymore
-    for molecule_data in balanced_primary_molecules:
+    print("\nStep 4: Augmenting Datasets with Scores and Random Low Affinity")
+
+    # First, augment the KNOWN molecules with their real scores
+    for molecule_data in known_primary_molecules:
         molecule_id = molecule_data['id']
+        molecule_data['affinity'] = data_sources.get('affinity', {}).get(molecule_id, 0.0)
         mirna_family_match = re.search(r"hsa-mir-\d+[a-z]?", molecule_id.lower())
         mirna_family_name = mirna_family_match.group(0) if mirna_family_match else molecule_id.lower()
         molecule_data['conservation'] = data_sources.get('conservation', {}).get(mirna_family_name, 0.0)
+
+    # ⭐ NEW: Now, augment the UNKNOWN subsample with random low affinity scores
+    for molecule_data in unknown_subsample:
+        molecule_id = molecule_data['id']
+        # Assign a random score between 0.0 and 0.15
+        molecule_data['affinity'] = random.uniform(0.0, 0.15)
+        # Assign conservation score if available, otherwise 0.0
+        mirna_family_match = re.search(r"hsa-mir-\d+[a-z]?", molecule_id.lower())
+        mirna_family_name = mirna_family_match.group(0) if mirna_family_match else molecule_id.lower()
+        molecule_data['conservation'] = data_sources.get('conservation', {}).get(mirna_family_name, 0.0)
+
     print("  - Augmentation complete.")
+
+    # Recombine into the final balanced set
+    balanced_primary_molecules = known_primary_molecules + unknown_subsample
 
     print("\nStep 5: Preparing Final Competitor List...")
     null_competitor = {'id': 'NO_COMPETITOR', 'sequence': '', 'original_sequence': '', 'gc_content': 0.0, 'dg': 0.0, 'structure_vector': '[]', 'adjacency_matrix': '[]'}
@@ -286,13 +242,17 @@ def prepare_dataset(config):
     # STEP 6: GENERATING AND SHUFFLING COMBINATIONS
     # =========================================================================================
     print("\nStep 6: Generating and Shuffling Combinations with Progress...")
+    # --- Timer Start for Step 6 ---
     start_gen_time = time.time()
 
+    # First, calculate the total number of combinations to set up the progress bar
     total_combinations_count = len(balanced_primary_molecules) * len(target_molecules) * len(competitors_augmented)
     print(f"  - Preparing to generate {total_combinations_count} combinations...")
 
+    # Create the combination generator
     combination_generator = product(balanced_primary_molecules, target_molecules, competitors_augmented)
 
+    # Build the final list by iterating through the generator with a tqdm progress bar
     all_combinations = [
         combo for combo in tqdm(
             combination_generator,
@@ -304,16 +264,19 @@ def prepare_dataset(config):
     print("  - Now shuffling all combinations...")
     random.shuffle(all_combinations)
 
+    # --- Timer End for Step 6 ---
     end_gen_time = time.time()
     gen_time_taken = end_gen_time - start_gen_time
 
     print(f"\n  - Generated and shuffled {len(all_combinations)} total combinations.")
     print(f"  - Time taken for this step: {gen_time_taken:.2f} seconds")
 
+
     # =========================================================================================
-    # STEP 7: STREAMING SHUFFLED COMBINATIONS TO PARQUET (pairwise labels + competitor effect)
+    # STEP 7: STREAMING SHUFFLED COMBINATIONS TO PARQUET
     # =========================================================================================
     print("\nStep 7: Streaming Shuffled Combinations to Parquet with Progress...")
+    # --- Timer Start for Step 7 ---
     start_write_time = time.time()
 
     output_filename = f"Prepared_Dataset_{int(time.time())}.parquet"
@@ -322,54 +285,20 @@ def prepare_dataset(config):
     parquet_writer = None
     batch, total_rows = [], 0
 
-    # Family prior map (per miRNA id): used as a prior feature in label composition
-    family_prior_map = data_sources.get('affinity', {})  # already numeric per-id/family
-
+    # --- Progress Bar Implementation for Step 7 ---
+    # Wrap the main loop with tqdm to monitor progress of iterating through combinations
     for primary_data, target_data, competitor_data in tqdm(all_combinations, desc="  Writing to Parquet"):
-        mirna_id = primary_data.get('id')
-        mirna_seq = primary_data.get('sequence', '')
-        target_seq = target_data.get('sequence', '')
-        comp_seq = competitor_data.get('sequence', '')
-
-        # Components for pairwise label
-        seed_score, seed_pos = seed_match_score(mirna_seq, target_seq)
-        gc_score = gc_strength_score(mirna_seq, target_seq, seed_pos)
-        acc_score = accessibility_score(target_data.get('structure_vector','[]'), seed_pos, 7)
-
-        fam_prior_raw = family_prior_map.get(mirna_id, 0.0)
-        fam_prior = normalize_01(fam_prior_raw, 0.0, 1.0)
-        cons_raw = primary_data.get('conservation', 0.0)
-        cons_n = normalize_01(cons_raw, 0.0, 1.0)
-
-        # Combine into pairwise label (tunable weights)
-        w_seed, w_gc, w_acc, w_prior, w_cons = 0.35, 0.15, 0.20, 0.20, 0.10
-        L_pair = normalize_01(w_seed*seed_score + w_gc*gc_score + w_acc*acc_score + w_prior*fam_prior + w_cons*cons_n, 0.0, 1.0)
-
-        # Competitor effect (weak supervision)
-        comp_prop = competitor_propensity_score(comp_seq, target_seq) if comp_seq else 0.0
-        beta = 0.6
-        L_with_comp = max(0.0, L_pair - beta * comp_prop)
-
-        # Baseline row (no competitor)
-        row_base = {
-            'primary_id': mirna_id, 'primary_sequence': mirna_seq,
+        row = {
+            'primary_id': primary_data.get('id'), 'primary_sequence': primary_data.get('sequence'),
             'gc_content': primary_data.get('gc_content'), 'dg': primary_data.get('dg'),
             'structure_vector': primary_data.get('structure_vector'), 'adjacency_matrix': primary_data.get('adjacency_matrix'),
-            'affinity': L_pair, 'conservation': cons_n,
-            'target_id': target_data.get('id'), 'target_sequence': target_seq,
-            'competitor_id': 'NO_COMPETITOR', 'competitor_sequence': ''
+            'affinity': primary_data.get('affinity'), 'conservation': primary_data.get('conservation'),
+            'target_id': target_data.get('id'), 'target_sequence': target_data.get('sequence'),
+            'competitor_id': competitor_data.get('id'), 'competitor_sequence': competitor_data.get('sequence')
         }
-        batch.append(row_base)
+        batch.append(row)
 
-        # With-competitor row (only if competitor exists)
-        if comp_seq:
-            row_comp = dict(row_base)
-            row_comp['competitor_id'] = competitor_data.get('id')
-            row_comp['competitor_sequence'] = comp_seq
-            row_comp['affinity'] = L_with_comp
-            batch.append(row_comp)
-
-        # Batched writing
+        # We keep the batching logic for efficient disk I/O, but remove the old print statement
         if len(batch) >= PARAMS.get('batch_size_parquet', 50000):
             table = pa.Table.from_pandas(pd.DataFrame(batch), preserve_index=False)
             if parquet_writer is None:
@@ -378,22 +307,26 @@ def prepare_dataset(config):
             total_rows += len(batch)
             batch = []
 
-    # Write remaining rows
+    # Write any remaining data in the final batch
     if batch:
         table = pa.Table.from_pandas(pd.DataFrame(batch), preserve_index=False)
         if parquet_writer is None:
+            # This handles cases where the total dataset is smaller than one batch
             parquet_writer = pq.ParquetWriter(output_path, table.schema)
         parquet_writer.write_table(table)
         total_rows += len(batch)
 
     if parquet_writer: parquet_writer.close()
 
+    # --- Timer End for Step 7 ---
     end_write_time = time.time()
     write_time_taken = end_write_time - start_write_time
 
+    # Final summary printout for this step
     print(f"\n  - Wrote a total of {total_rows} rows to '{output_filename}'.")
     print(f"  - Time taken for this step: {write_time_taken:.2f} seconds")
 
+    
     # =========================================================================================
     # FINAL SCRIPT SUMMARY
     # =========================================================================================
