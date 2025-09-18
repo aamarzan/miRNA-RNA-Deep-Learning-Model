@@ -15,6 +15,7 @@ import pyarrow as pa
 import pyarrow.parquet as pq
 import pyarrow.dataset as ds
 import math
+from multiprocessing import Pool, cpu_count
 import random
 
 # Reproducibility
@@ -462,7 +463,7 @@ def prepare_dataset(config):
             yield chunk
 
     dp = config.get('data_processing', {})
-    PARQUET_BATCH_SIZE = int(dp.get('batch_size_parquet', 2_000_000))  # larger default, unified
+    PARQUET_BATCH_SIZE = int(dp.get('batch_size_parquet', 1_000_000))  # larger default, unified
     CHUNK_SIZE = max(20_000, PARQUET_BATCH_SIZE)  # block-level shuffle
     PARQUET_COMPRESSION = dp.get('parquet_compression', 'snappy')
     PARQUET_PREFIX = dp.get('parquet_output_prefix', 'training_combinations')
@@ -495,19 +496,19 @@ def prepare_dataset(config):
 
     # Use a generator — do not materialize
     combination_generator = product(balanced_primary_molecules, target_molecules, competitors_augmented)
-
+    normalize_01 = normalize_feature_01
     # =========================================================================================
-    # STEP 7: STREAMING SHUFFLED COMBINATIONS TO PARQUET (pairwise labels + competitor effect)
+    # STEP 7: STREAMING SHUFFLED COMBINATIONS TO PARQUET (parallel row building)
     # =========================================================================================
     print("\nStep 7: Streaming Shuffled Combinations to Parquet with Progress...")
     start_write_time = time.time()
 
-    # --- Diagnostics before writing (no materialization, no slicing) ---
-    # Competitor fraction depends only on competitor entries having a sequence.
+    # --- Diagnostics before writing ---
     num_comps_with_seq = sum(1 for c in competitors_augmented if c.get('sequence', ''))
     competitor_fraction = (num_comps_with_seq / len(competitors_augmented)) if competitors_augmented else 0.0
 
     est_total_rows = int(total_combinations_count * (1 + competitor_fraction))
+    PARQUET_BATCH_SIZE = 1_000_000  # fixed as per your request
     est_parts = math.ceil(est_total_rows / PARQUET_BATCH_SIZE) if PARQUET_BATCH_SIZE > 0 else 0
 
     print(f"  - Competitor fraction (by catalog): {competitor_fraction:.2%}")
@@ -518,68 +519,69 @@ def prepare_dataset(config):
     # --- Family prior map ---
     family_prior_map = data_sources.get('affinity', {})
 
+    # --- Row builder function for parallelism ---
+    def build_rows_for_combo(args):
+        primary_data, target_data, competitor_data = args
+        mirna_id = primary_data.get('id')
+        mirna_seq = primary_data.get('sequence', '')
+        target_seq = target_data.get('sequence', '')
+        comp_seq = competitor_data.get('sequence', '')
+
+        seed_score, seed_pos = seed_match_score(mirna_seq, target_seq)
+        gc_score = gc_strength_score(mirna_seq, target_seq, seed_pos)
+        acc_score = accessibility_score(target_data.get('structure_vector','[]'), seed_pos, 7)
+
+        fam_prior_raw = family_prior_map.get(mirna_id, 0.0)
+        fam_prior = normalize_01(fam_prior_raw, 0.0, 1.0)
+        cons_raw = primary_data.get('conservation', 0.0)
+        cons_n = normalize_01(cons_raw, 0.0, 1.0)
+
+        w_seed, w_gc, w_acc, w_prior, w_cons = 0.35, 0.15, 0.20, 0.20, 0.10
+        L_pair = normalize_01(
+            w_seed*seed_score + w_gc*gc_score + w_acc*acc_score + w_prior*fam_prior + w_cons*cons_n,
+            0.0, 1.0
+        )
+
+        comp_prop = competitor_propensity_score(comp_seq, target_seq) if comp_seq else 0.0
+        beta = 0.6
+        L_with_comp = max(0.0, L_pair - beta * comp_prop)
+
+        row_base = {
+            'primary_id': mirna_id, 'primary_sequence': mirna_seq,
+            'gc_content': primary_data.get('gc_content'), 'dg': primary_data.get('dg'),
+            'structure_vector': primary_data.get('structure_vector'), 'adjacency_matrix': primary_data.get('adjacency_matrix'),
+            'affinity': L_pair, 'conservation': cons_n,
+            'target_id': target_data.get('id'), 'target_sequence': target_seq,
+            'competitor_id': 'NO_COMPETITOR', 'competitor_sequence': ''
+        }
+        rows = [row_base]
+
+        if comp_seq:
+            row_comp = dict(row_base)
+            row_comp['competitor_id'] = competitor_data.get('id')
+            row_comp['competitor_sequence'] = comp_seq
+            row_comp['affinity'] = L_with_comp
+            rows.append(row_comp)
+
+        return rows
+
+    # --- Progress bar and parallel processing ---
     pbar = tqdm(total=total_combinations_count, desc="  Writing to Parquet")
-    
-    # Alias for compatibility with older code
-    normalize_01 = normalize_feature_01
-    
-    # Stream in blocks, shuffle each block, build rows, and flush
+
     for chunk in chunked(combination_generator, CHUNK_SIZE):
         random.shuffle(chunk)
 
-        for primary_data, target_data, competitor_data in chunk:
-            mirna_id = primary_data.get('id')
-            mirna_seq = primary_data.get('sequence', '')
-            target_seq = target_data.get('sequence', '')
-            comp_seq = competitor_data.get('sequence', '')
+        # Prepare arguments for the pool
+        arg_iter = ((p, t, c) for p, t, c in chunk)
 
-            # Pairwise label components
-            seed_score, seed_pos = seed_match_score(mirna_seq, target_seq)
-            gc_score = gc_strength_score(mirna_seq, target_seq, seed_pos)
-            acc_score = accessibility_score(target_data.get('structure_vector','[]'), seed_pos, 7)
-            
-            fam_prior_raw = family_prior_map.get(mirna_id, 0.0)
-            fam_prior = normalize_01(fam_prior_raw, 0.0, 1.0)
-            cons_raw = primary_data.get('conservation', 0.0)
-            cons_n = normalize_01(cons_raw, 0.0, 1.0)
+        with Pool(processes=max(1, cpu_count() - 1)) as pool:
+            for rows in pool.imap_unordered(build_rows_for_combo, arg_iter, chunksize=2000):
+                buffer.extend(rows)
+                if len(buffer) >= PARQUET_BATCH_SIZE:
+                    flush_parquet_buffer()
+                pbar.update(1)
 
-            # Combine into pairwise label (weights unchanged)
-            w_seed, w_gc, w_acc, w_prior, w_cons = 0.35, 0.15, 0.20, 0.20, 0.10
-            L_pair = normalize_01(
-                w_seed*seed_score + w_gc*gc_score + w_acc*acc_score + w_prior*fam_prior + w_cons*cons_n,
-                0.0, 1.0
-            )
-
-            # Competitor effect
-            comp_prop = competitor_propensity_score(comp_seq, target_seq) if comp_seq else 0.0
-            beta = 0.6
-            L_with_comp = max(0.0, L_pair - beta * comp_prop)
-
-            # Baseline row
-            row_base = {
-                'primary_id': mirna_id, 'primary_sequence': mirna_seq,
-                'gc_content': primary_data.get('gc_content'), 'dg': primary_data.get('dg'),
-                'structure_vector': primary_data.get('structure_vector'), 'adjacency_matrix': primary_data.get('adjacency_matrix'),
-                'affinity': L_pair, 'conservation': cons_n,
-                'target_id': target_data.get('id'), 'target_sequence': target_seq,
-                'competitor_id': 'NO_COMPETITOR', 'competitor_sequence': ''
-            }
-            buffer.append(row_base)
-
-            # With competitor
-            if comp_seq:
-                row_comp = dict(row_base)
-                row_comp['competitor_id'] = competitor_data.get('id')
-                row_comp['competitor_sequence'] = comp_seq
-                row_comp['affinity'] = L_with_comp
-                buffer.append(row_comp)
-
-            if len(buffer) >= PARQUET_BATCH_SIZE:
-                flush_parquet_buffer()
-
-            pbar.update(1)
-
-    # Final flush and summary
+    # Final flush
     flush_parquet_buffer()
     pbar.close()
 
