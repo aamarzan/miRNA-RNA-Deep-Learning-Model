@@ -289,6 +289,63 @@ def build_rows_for_combo(args):
 
     return rows
 
+def build_rows_for_combo(args):
+    """
+    Top-level row builder for multiprocessing.
+    Args:
+        args: tuple of (primary_data, target_data, competitor_data, family_prior_map)
+    Returns:
+        list of 1 or 2 row dicts
+    """
+    primary_data, target_data, competitor_data, family_prior_map = args
+
+    mirna_id = primary_data.get('id')
+    mirna_seq = primary_data.get('sequence', '')
+    target_seq = target_data.get('sequence', '')
+    comp_seq = competitor_data.get('sequence', '')
+
+    # Pairwise label components
+    seed_score, seed_pos = seed_match_score(mirna_seq, target_seq)
+    gc_score = gc_strength_score(mirna_seq, target_seq, seed_pos)
+    acc_score = accessibility_score(target_data.get('structure_vector','[]'), seed_pos, 7)
+
+    fam_prior_raw = family_prior_map.get(mirna_id, 0.0)
+    fam_prior = normalize_01(fam_prior_raw, 0.0, 1.0)
+    cons_raw = primary_data.get('conservation', 0.0)
+    cons_n = normalize_01(cons_raw, 0.0, 1.0)
+
+    # Combine into pairwise label
+    w_seed, w_gc, w_acc, w_prior, w_cons = 0.35, 0.15, 0.20, 0.20, 0.10
+    L_pair = normalize_01(
+        w_seed*seed_score + w_gc*gc_score + w_acc*acc_score + w_prior*fam_prior + w_cons*cons_n,
+        0.0, 1.0
+    )
+
+    # Competitor effect
+    comp_prop = competitor_propensity_score(comp_seq, target_seq) if comp_seq else 0.0
+    beta = 0.6
+    L_with_comp = max(0.0, L_pair - beta * comp_prop)
+
+    # Baseline row
+    row_base = {
+        'primary_id': mirna_id, 'primary_sequence': mirna_seq,
+        'gc_content': primary_data.get('gc_content'), 'dg': primary_data.get('dg'),
+        'structure_vector': primary_data.get('structure_vector'), 'adjacency_matrix': primary_data.get('adjacency_matrix'),
+        'affinity': L_pair, 'conservation': cons_n,
+        'target_id': target_data.get('id'), 'target_sequence': target_seq,
+        'competitor_id': 'NO_COMPETITOR', 'competitor_sequence': ''
+    }
+    rows = [row_base]
+
+    if comp_seq:
+        row_comp = dict(row_base)
+        row_comp['competitor_id'] = competitor_data.get('id')
+        row_comp['competitor_sequence'] = comp_seq
+        row_comp['affinity'] = L_with_comp
+        rows.append(row_comp)
+
+    return rows
+
 # ==============================
 # MAIN DATASET PREPARATION
 # ==============================
@@ -497,6 +554,7 @@ def prepare_dataset(config):
     # Use a generator — do not materialize
     combination_generator = product(balanced_primary_molecules, target_molecules, competitors_augmented)
     normalize_01 = normalize_feature_01
+    
     # =========================================================================================
     # STEP 7: STREAMING SHUFFLED COMBINATIONS TO PARQUET (parallel row building)
     # =========================================================================================
@@ -519,60 +577,13 @@ def prepare_dataset(config):
     # --- Family prior map ---
     family_prior_map = data_sources.get('affinity', {})
 
-    # --- Row builder function for parallelism ---
-    def build_rows_for_combo(args):
-        primary_data, target_data, competitor_data = args
-        mirna_id = primary_data.get('id')
-        mirna_seq = primary_data.get('sequence', '')
-        target_seq = target_data.get('sequence', '')
-        comp_seq = competitor_data.get('sequence', '')
-
-        seed_score, seed_pos = seed_match_score(mirna_seq, target_seq)
-        gc_score = gc_strength_score(mirna_seq, target_seq, seed_pos)
-        acc_score = accessibility_score(target_data.get('structure_vector','[]'), seed_pos, 7)
-
-        fam_prior_raw = family_prior_map.get(mirna_id, 0.0)
-        fam_prior = normalize_01(fam_prior_raw, 0.0, 1.0)
-        cons_raw = primary_data.get('conservation', 0.0)
-        cons_n = normalize_01(cons_raw, 0.0, 1.0)
-
-        w_seed, w_gc, w_acc, w_prior, w_cons = 0.35, 0.15, 0.20, 0.20, 0.10
-        L_pair = normalize_01(
-            w_seed*seed_score + w_gc*gc_score + w_acc*acc_score + w_prior*fam_prior + w_cons*cons_n,
-            0.0, 1.0
-        )
-
-        comp_prop = competitor_propensity_score(comp_seq, target_seq) if comp_seq else 0.0
-        beta = 0.6
-        L_with_comp = max(0.0, L_pair - beta * comp_prop)
-
-        row_base = {
-            'primary_id': mirna_id, 'primary_sequence': mirna_seq,
-            'gc_content': primary_data.get('gc_content'), 'dg': primary_data.get('dg'),
-            'structure_vector': primary_data.get('structure_vector'), 'adjacency_matrix': primary_data.get('adjacency_matrix'),
-            'affinity': L_pair, 'conservation': cons_n,
-            'target_id': target_data.get('id'), 'target_sequence': target_seq,
-            'competitor_id': 'NO_COMPETITOR', 'competitor_sequence': ''
-        }
-        rows = [row_base]
-
-        if comp_seq:
-            row_comp = dict(row_base)
-            row_comp['competitor_id'] = competitor_data.get('id')
-            row_comp['competitor_sequence'] = comp_seq
-            row_comp['affinity'] = L_with_comp
-            rows.append(row_comp)
-
-        return rows
-
-    # --- Progress bar and parallel processing ---
     pbar = tqdm(total=total_combinations_count, desc="  Writing to Parquet")
 
     for chunk in chunked(combination_generator, CHUNK_SIZE):
         random.shuffle(chunk)
 
         # Prepare arguments for the pool
-        arg_iter = ((p, t, c) for p, t, c in chunk)
+        arg_iter = ((p, t, c, family_prior_map) for p, t, c in chunk)
 
         with Pool(processes=max(1, cpu_count() - 1)) as pool:
             for rows in pool.imap_unordered(build_rows_for_combo, arg_iter, chunksize=2000):
