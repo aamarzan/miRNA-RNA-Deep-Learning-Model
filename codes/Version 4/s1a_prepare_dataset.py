@@ -232,70 +232,68 @@ def build_rows_for_combo(args):
     """
     Top-level row builder for multiprocessing.
     Args:
-        args: tuple of (primary_data, target_data, competitor_data, family_prior_map, family_typical_seed_map)
+        args: tuple of (primary_data, target_data, competitor_data, family_prior_map, family_typical_seed_map, max_seed_len)
     Returns:
         list of 1 or 2 row dicts
     """
-    primary_data, target_data, competitor_data, family_prior_map, family_typical_seed_map = args
+    primary_data, target_data, competitor_data, family_prior_map, family_typical_seed_map, max_seed_len = args
 
     mirna_id = primary_data.get('id')
-    mirna_seq = primary_data.get('sequence', '')
+    mirna_seq = primary_data.get('mature_sequence', primary_data.get('sequence', ''))
     target_seq = target_data.get('sequence', '')
     comp_seq = competitor_data.get('sequence', '')
 
     # Pairwise label components
-    seed_score, seed_pos = seed_match_score(mirna_seq, target_seq)
+    seed_score, seed_pos = seed_match_score(mirna_seq, target_seq, max_seed_len)
     gc_score = gc_strength_score(mirna_seq, target_seq, seed_pos)
-    acc_score = accessibility_score(target_data.get('structure_vector','[]'), seed_pos, 7)
+    acc_score = accessibility_score(target_data.get('structure_vector', '[]'), seed_pos, max_seed_len)
 
+    family_key = mirna_id.strip().split(' ')[0]
+    fam_prior_raw = family_prior_map.get(mirna_id, 0.0)
+    fam_prior = normalize_01(fam_prior_raw, 0.0, 1.0)
     cons_raw = primary_data.get('conservation', 0.0)
     cons_n = normalize_01(cons_raw, 0.0, 1.0)
 
-    # Feature-only score (used for no-affinity or blending)
-    feature_score = normalize_01(
-        0.35*seed_score + 0.15*gc_score + 0.20*acc_score + 0.10*cons_n,
+    # Typical seed similarity bonus
+    typical_seed = family_typical_seed_map.get(family_key, '')
+    seed_region = mirna_seq[1:1+max_seed_len]
+    seed_similarity = sum(1 for a, b in zip(seed_region, typical_seed) if a == b)
+    seed_similarity_score = seed_similarity / max_seed_len if typical_seed else 0.0
+
+    # Combine into pairwise label
+    w_seed, w_gc, w_acc, w_prior, w_cons, w_typical = 0.30, 0.15, 0.20, 0.15, 0.10, 0.10
+    L_pair = normalize_01(
+        w_seed * seed_score +
+        w_gc * gc_score +
+        w_acc * acc_score +
+        w_prior * fam_prior +
+        w_cons * cons_n +
+        w_typical * seed_similarity_score,
         0.0, 1.0
     )
-
-    # Blended affinity logic
-    fam_prior_raw = family_prior_map.get(mirna_id, None)
-    if fam_prior_raw is not None:
-        fam_prior = normalize_01(fam_prior_raw, 0.0, 1.0)
-
-        # Context-sensitive weighting based on seed match to typical family seed
-        family_key = mirna_id.split('-')[0]  # adjust if your family naming is different
-        typical_seed = family_typical_seed_map.get(family_key, '')
-        current_seed = mirna_seq[:7]
-
-        if current_seed == typical_seed:
-            prior_weight = 0.7  # high trust in prior
-        else:
-            prior_weight = 0.4  # lower trust in prior
-
-        feature_weight = 1.0 - prior_weight
-        adjusted_affinity = prior_weight * fam_prior + feature_weight * feature_score
-    else:
-        adjusted_affinity = feature_score
-
-    L_pair = adjusted_affinity
 
     # Competitor effect
     comp_prop = competitor_propensity_score(comp_seq, target_seq) if comp_seq else 0.0
     beta = 0.6
     L_with_comp = max(0.0, L_pair - beta * comp_prop)
 
-    # Baseline row (no competitor)
+    # Baseline row
     row_base = {
-        'primary_id': mirna_id, 'primary_sequence': mirna_seq,
-        'gc_content': primary_data.get('gc_content'), 'dg': primary_data.get('dg'),
-        'structure_vector': primary_data.get('structure_vector'), 'adjacency_matrix': primary_data.get('adjacency_matrix'),
-        'affinity': L_pair, 'conservation': cons_n,
-        'target_id': target_data.get('id'), 'target_sequence': target_seq,
-        'competitor_id': 'NO_COMPETITOR', 'competitor_sequence': ''
+        'primary_id': mirna_id,
+        'primary_sequence': mirna_seq,
+        'gc_content': primary_data.get('gc_content'),
+        'dg': primary_data.get('dg'),
+        'structure_vector': primary_data.get('structure_vector'),
+        'adjacency_matrix': primary_data.get('adjacency_matrix'),
+        'affinity': L_pair,
+        'conservation': cons_n,
+        'target_id': target_data.get('id'),
+        'target_sequence': target_seq,
+        'competitor_id': 'NO_COMPETITOR',
+        'competitor_sequence': ''
     }
-    rows = [row_base]
 
-    # With competitor
+    rows = [row_base]
     if comp_seq:
         row_comp = dict(row_base)
         row_comp['competitor_id'] = competitor_data.get('id')
