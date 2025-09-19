@@ -59,7 +59,8 @@
         "max_gc_content": 0.90
     },
     "data_processing": {
-        "batch_size_parquet": 1000000,
+        "batch_size_parquet": 10000,
+        "dl_sub_batch_size": 10000,
         "parquet_compression": "snappy",
         "parquet_output_prefix": "training_combinations"
     },
