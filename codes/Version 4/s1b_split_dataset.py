@@ -1,115 +1,74 @@
-# 1b_split_dataset.py (Fully Config-Driven, Memory-Safe Version)
 import os
-import pandas as pd
-import pyarrow.parquet as pq
 import math
-import json
+import pyarrow.parquet as pq
+import pandas as pd
+import numpy as np
 
-# <<< CHANGE: No more hard-coded configuration here. >>>
+# === CONFIGURATION ===
+# Path to your prepared_dataset folder
+prepared_folder = r"E:\1. Github\1. miRNA-RNA-Deep-Learning-Model\dataset\prepared_dataset"
 
+# Input Parquet file (auto-detect latest if empty)
+input_filename = ""  # e.g., "training_combinations_part00000.parquet"
+rows_per_part = 250_000   # target rows per output file
+shuffle_buffer_size = 100_000  # how many rows to hold in memory before shuffling & writing
+output_subfolder = "split_shuffled_parts"
 
-# --- Configuration Loader ---
-def load_config(config_path=None):
-    if config_path is None:
-        # Looks for config.json in the same directory as the script.
-        script_dir = os.path.dirname(os.path.realpath(__file__))
-        config_path = os.path.join(script_dir, 'config.json')
-    
-    print(f"--- Loading configuration from: {config_path} ---")
-    try:
-        with open(config_path, 'r') as f:
-            return json.load(f)
-    except FileNotFoundError:
-        print(f"FATAL: Configuration file not found at '{config_path}'.")
-        exit()
+# === SCRIPT START ===
+print("--- Starting Memory-Safe Split with Shuffle ---")
 
-def split_dataset_memory_safe():
-    """
-    Splits a large Parquet file into smaller parts based on settings
-    in the config.json file.
-    """
-    print("--- Starting Memory-Safe Dataset Dissection Script ---")
+# 1. Detect input file
+if not input_filename:
+    parquet_files = [f for f in os.listdir(prepared_folder) if f.endswith(".parquet")]
+    if not parquet_files:
+        raise FileNotFoundError("No Parquet files found in prepared_dataset folder.")
+    input_filename = sorted(parquet_files)[-1]
+    print(f"  - Auto-detected latest file: {input_filename}")
 
-    # --- 1. Load Config and Define Paths ---
-    config = load_config()
-    split_params = config.get('dataset_splitting', {})
-    
-    project_root = config['project_root']
-    prepared_folder = os.path.join(project_root, config['data_folders']['main_dataset_folder'], config['data_folders']['prepared_subfolder'])
-    output_folder = os.path.join(prepared_folder, "split_parts")
-    os.makedirs(output_folder, exist_ok=True)
+input_path = os.path.join(prepared_folder, input_filename)
+output_folder = os.path.join(prepared_folder, output_subfolder)
+os.makedirs(output_folder, exist_ok=True)
 
-    # --- 2. Determine Input File ---
-    input_filename = split_params.get('input_filename', '')
-    if not input_filename:
-        # Auto-detect the most recent Parquet file if none is specified
-        try:
-            prepared_files = [f for f in os.listdir(prepared_folder) if f.endswith('.parquet') and os.path.isfile(os.path.join(prepared_folder, f))]
-            if not prepared_files: raise FileNotFoundError("No Parquet files found.")
-            input_filename = sorted(prepared_files)[-1]
-            print(f"  - No input file specified. Auto-detecting latest dataset: {input_filename}")
-        except (FileNotFoundError, IndexError) as e:
-            print(f"\nFATAL ERROR in auto-detection: {e}. Please run Stage 1 first.")
-            return
-    
-    input_path = os.path.join(prepared_folder, input_filename)
-    
-    print(f"Input file: {input_path}")
-    print(f"Output folder for split parts: {output_folder}")
+# 2. Open Parquet file
+pf = pq.ParquetFile(input_path)
+total_rows = pf.metadata.num_rows
+print(f"  - Total rows: {total_rows:,}")
 
-    if not os.path.exists(input_path):
-        print(f"\nFATAL ERROR: Input file not found at '{input_path}'.")
+# 3. Prepare for streaming shuffle
+buffer_df = pd.DataFrame()
+part_counter = 0
+rows_written_in_part = 0
+current_part_rows = []
+
+def flush_part(rows_list, part_id):
+    """Write accumulated rows to a Parquet file."""
+    if not rows_list:
         return
+    df_out = pd.concat(rows_list, ignore_index=True)
+    out_path = os.path.join(output_folder, f"{os.path.splitext(input_filename)[0]}_part{part_id:03d}.parquet")
+    df_out.to_parquet(out_path, index=False)
+    print(f"  - Saved {out_path} ({len(df_out):,} rows)")
 
-    # --- 3. Open Parquet File and Plan the Split ---
-    try:
-        parquet_file = pq.ParquetFile(input_path)
-        total_row_groups = parquet_file.num_row_groups
-        number_of_parts = split_params.get('number_of_parts', 10)
-        
-        if total_row_groups < number_of_parts:
-            print(f"\nWarning: The number of parts ({number_of_parts}) is greater than the number of chunks in the file ({total_row_groups}).")
-            print(f"         The script will create {total_row_groups} smaller files instead.")
-            num_parts_to_create = total_row_groups
-        else:
-            num_parts_to_create = number_of_parts
-            
-        if num_parts_to_create > 0:
-            groups_per_part = math.ceil(total_row_groups / num_parts_to_create)
-        else:
-            groups_per_part = 0
-        
-        print(f"  - Input file has {total_row_groups} internal chunks (row groups).")
-        print(f"  - Each of the {num_parts_to_create} output files will contain up to {groups_per_part} chunks.")
+# 4. Stream row groups in batches
+for batch in pf.iter_batches(batch_size=shuffle_buffer_size):
+    df_batch = batch.to_pandas()
+    # Shuffle this batch
+    df_batch = df_batch.sample(frac=1, random_state=np.random.randint(0, 1_000_000)).reset_index(drop=True)
 
-    except Exception as e:
-        print(f"  - Error reading Parquet file: {e}")
-        return
+    # Append to current part
+    current_part_rows.append(df_batch)
+    rows_written_in_part += len(df_batch)
 
-    # --- 4. Read Chunks and Write to New Files ---
-    print("\nSplitting the dataset and saving parts...")
-    
-    current_group_index = 0
-    for part_num in range(1, num_parts_to_create + 1):
-        output_filename = f"{os.path.splitext(input_filename)[0]}_part_{part_num}_of_{num_parts_to_create}.parquet"
-        output_path = os.path.join(output_folder, output_filename)
-        
-        try:
-            start_group = current_group_index
-            end_group = min(current_group_index + groups_per_part, total_row_groups)
+    # If current part reached target size, flush it
+    if rows_written_in_part >= rows_per_part:
+        part_counter += 1
+        flush_part(current_part_rows, part_counter)
+        current_part_rows = []
+        rows_written_in_part = 0
 
-            with pq.ParquetWriter(output_path, parquet_file.schema_arrow) as writer:
-                for i in range(start_group, end_group):
-                    writer.write_table(parquet_file.read_row_group(i))
-            
-            print(f"  - Successfully saved '{output_filename}' (contains chunks {start_group}-{end_group-1}).")
-            current_group_index = end_group
+# 5. Flush any remaining rows
+if current_part_rows:
+    part_counter += 1
+    flush_part(current_part_rows, part_counter)
 
-        except Exception as e:
-            print(f"  - Error saving part {part_num}: {e}")
-
-    print("\n--- Dataset Dissection Complete ---")
-    print(f"All parts have been saved to: '{output_folder}'")
-
-if __name__ == "__main__":
-    split_dataset_memory_safe()
+print(f"\n✅ Done. Created {part_counter} shuffled parts in: {output_folder}")
