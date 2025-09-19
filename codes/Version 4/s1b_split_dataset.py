@@ -10,8 +10,8 @@ prepared_folder = r"E:\1. Github\1. miRNA-RNA-Deep-Learning-Model\dataset\prepar
 
 # Input Parquet file (auto-detect latest if empty)
 input_filename = ""  # e.g., "training_combinations_part00000.parquet"
-rows_per_part = 250_000   # target rows per output file
-shuffle_buffer_size = 100_000  # how many rows to hold in memory before shuffling & writing
+rows_per_part = 150_000   # target rows per output file
+shuffle_buffer_size = 50_000  # how many rows to hold in memory before shuffling & writing
 output_subfolder = "split_shuffled_parts"
 
 # === SCRIPT START ===
