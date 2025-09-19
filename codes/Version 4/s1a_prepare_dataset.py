@@ -173,6 +173,8 @@ def normalize_feature_01(x, lo=0.0, hi=1.0):
     v = (x - lo) / (hi - lo)
     return max(0.0, min(1.0, v))
 
+normalize_01 = normalize_feature_01
+    
 # ==============================
 # COMPETITOR PROPENSITY (VECTORIZED)
 # ==============================
@@ -225,79 +227,16 @@ def chunked(iterable, n):
 # ==============================
 # ROW BUILDER FOR PARALLELISM (pure function, picklable)
 # ==============================
-def build_rows_for_combo(args):
-    """
-    Build one or two rows for a single (primary, target, competitor) combo.
-    Returns a list of rows (dicts).
-    """
-    primary_data, target_data, competitor_data, family_prior_map = args
-
-    mirna_id = primary_data.get('id')
-    mirna_seq = primary_data.get('sequence', '')
-    target_seq = target_data.get('sequence', '')
-    comp_seq = competitor_data.get('sequence', '')
-
-    # Pairwise label components
-    seed_score, seed_pos = seed_match_score(mirna_seq, target_seq)
-    gc_score = gc_strength_score(mirna_seq, target_seq, seed_pos)
-    acc_score = accessibility_score(target_data.get('structure_vector', '[]'), seed_pos, 7)
-
-    fam_prior_raw = family_prior_map.get(mirna_id, 0.0)
-    fam_prior = normalize_feature_01(fam_prior_raw, 0.0, 1.0)
-    cons_raw = primary_data.get('conservation', 0.0)
-    cons_n = normalize_feature_01(cons_raw, 0.0, 1.0)
-
-    # Combine into pairwise label (weights unchanged)
-    w_seed, w_gc, w_acc, w_prior, w_cons = 0.35, 0.15, 0.20, 0.20, 0.10
-    L_pair = normalize_feature_01(
-        w_seed * seed_score +
-        w_gc * gc_score +
-        w_acc * acc_score +
-        w_prior * fam_prior +
-        w_cons * cons_n,
-        0.0, 1.0
-    )
-
-    # Competitor effect (weak supervision)
-    comp_prop = competitor_propensity_score(comp_seq, target_seq) if comp_seq else 0.0
-    beta = 0.6
-    L_with_comp = max(0.0, L_pair - beta * comp_prop)
-
-    # Baseline row (no competitor)
-    row_base = {
-        'primary_id': mirna_id,
-        'primary_sequence': mirna_seq,
-        'gc_content': primary_data.get('gc_content'),
-        'dg': primary_data.get('dg'),
-        'structure_vector': primary_data.get('structure_vector'),
-        'adjacency_matrix': primary_data.get('adjacency_matrix'),
-        'affinity': L_pair,
-        'conservation': cons_n,
-        'target_id': target_data.get('id'),
-        'target_sequence': target_seq,
-        'competitor_id': 'NO_COMPETITOR',
-        'competitor_sequence': ''
-    }
-
-    rows = [row_base]
-    if comp_seq:
-        row_comp = dict(row_base)
-        row_comp['competitor_id'] = competitor_data.get('id')
-        row_comp['competitor_sequence'] = comp_seq
-        row_comp['affinity'] = L_with_comp
-        rows.append(row_comp)
-
-    return rows
 
 def build_rows_for_combo(args):
     """
     Top-level row builder for multiprocessing.
     Args:
-        args: tuple of (primary_data, target_data, competitor_data, family_prior_map)
+        args: tuple of (primary_data, target_data, competitor_data, family_prior_map, family_typical_seed_map)
     Returns:
         list of 1 or 2 row dicts
     """
-    primary_data, target_data, competitor_data, family_prior_map = args
+    primary_data, target_data, competitor_data, family_prior_map, family_typical_seed_map = args
 
     mirna_id = primary_data.get('id')
     mirna_seq = primary_data.get('sequence', '')
@@ -309,24 +248,43 @@ def build_rows_for_combo(args):
     gc_score = gc_strength_score(mirna_seq, target_seq, seed_pos)
     acc_score = accessibility_score(target_data.get('structure_vector','[]'), seed_pos, 7)
 
-    fam_prior_raw = family_prior_map.get(mirna_id, 0.0)
-    fam_prior = normalize_01(fam_prior_raw, 0.0, 1.0)
     cons_raw = primary_data.get('conservation', 0.0)
     cons_n = normalize_01(cons_raw, 0.0, 1.0)
 
-    # Combine into pairwise label
-    w_seed, w_gc, w_acc, w_prior, w_cons = 0.35, 0.15, 0.20, 0.20, 0.10
-    L_pair = normalize_01(
-        w_seed*seed_score + w_gc*gc_score + w_acc*acc_score + w_prior*fam_prior + w_cons*cons_n,
+    # Feature-only score (used for no-affinity or blending)
+    feature_score = normalize_01(
+        0.35*seed_score + 0.15*gc_score + 0.20*acc_score + 0.10*cons_n,
         0.0, 1.0
     )
+
+    # Blended affinity logic
+    fam_prior_raw = family_prior_map.get(mirna_id, None)
+    if fam_prior_raw is not None:
+        fam_prior = normalize_01(fam_prior_raw, 0.0, 1.0)
+
+        # Context-sensitive weighting based on seed match to typical family seed
+        family_key = mirna_id.split('-')[0]  # adjust if your family naming is different
+        typical_seed = family_typical_seed_map.get(family_key, '')
+        current_seed = mirna_seq[:7]
+
+        if current_seed == typical_seed:
+            prior_weight = 0.7  # high trust in prior
+        else:
+            prior_weight = 0.4  # lower trust in prior
+
+        feature_weight = 1.0 - prior_weight
+        adjusted_affinity = prior_weight * fam_prior + feature_weight * feature_score
+    else:
+        adjusted_affinity = feature_score
+
+    L_pair = adjusted_affinity
 
     # Competitor effect
     comp_prop = competitor_propensity_score(comp_seq, target_seq) if comp_seq else 0.0
     beta = 0.6
     L_with_comp = max(0.0, L_pair - beta * comp_prop)
 
-    # Baseline row
+    # Baseline row (no competitor)
     row_base = {
         'primary_id': mirna_id, 'primary_sequence': mirna_seq,
         'gc_content': primary_data.get('gc_content'), 'dg': primary_data.get('dg'),
@@ -337,6 +295,7 @@ def build_rows_for_combo(args):
     }
     rows = [row_base]
 
+    # With competitor
     if comp_seq:
         row_comp = dict(row_base)
         row_comp['competitor_id'] = competitor_data.get('id')
@@ -345,6 +304,33 @@ def build_rows_for_combo(args):
         rows.append(row_comp)
 
     return rows
+
+# --- Predict mature region from precursor sequence ---
+def predict_mature_region(seq, window=22):
+    best_score = -1
+    best_region = seq[:window]  # fallback
+    canonical_seeds = {'GAGUGU', 'UAGCUU', 'UGAGGU', 'AGCUUA'}  # example motifs
+
+    for i in range(len(seq) - window + 1):
+        candidate = seq[i:i+window]
+        gc = candidate.count('G') + candidate.count('C')
+        gc_ratio = gc / len(candidate)
+
+        seed = candidate[1:8]
+
+        # Seed quality components
+        diversity_score = len(set(seed))  # favors varied seeds
+        repeat_penalty = -5 if seed in {'AAAAAAA', 'UUUUUUU', 'GGGGGGG', 'CCCCCCC'} else 0
+        canonical_bonus = 5 if seed in canonical_seeds else 0
+
+        seed_score = diversity_score + canonical_bonus + repeat_penalty
+        score = seed_score - abs(gc_ratio - 0.45) * 10  # penalize extreme GC
+
+        if score > best_score:
+            best_score = score
+            best_region = candidate
+
+    return best_region
 
 # ==============================
 # MAIN DATASET PREPARATION
@@ -553,10 +539,35 @@ def prepare_dataset(config):
 
     # Use a generator — do not materialize
     combination_generator = product(balanced_primary_molecules, target_molecules, competitors_augmented)
-    normalize_01 = normalize_feature_01
+    
+    # --- Auto-generate family_typical_seed_map from available miRNAs ---
+    from collections import Counter, defaultdict
+
+    family_seed_counts = defaultdict(Counter)
+
+    # Collect seeds for each family from all primary molecules
+    for mol in balanced_primary_molecules:
+        full_seq = mol.get('sequence', '')
+        mol['mature_sequence'] = predict_mature_region(full_seq)
+        mirna_id = mol.get('id', '')
+        mirna_seq = mol.get('sequence', '')
+        if not mirna_seq:
+            continue
+        family_key = mirna_id.split('-')[0]  # adjust if your family naming differs
+        seed = mirna_seq[:7]
+        family_seed_counts[family_key][seed] += 1
+
+    # Pick the most common seed for each family
+    family_typical_seed_map = {
+        fam: counts.most_common(1)[0][0]
+        for fam, counts in family_seed_counts.items()
+    }
+
+    print(f"  - Auto-generated typical seeds for {len(family_typical_seed_map)} families")
+
     
     # =========================================================================================
-    # STEP 7: STREAMING SHUFFLED COMBINATIONS TO PARQUET (parallel row building)
+    # STEP 7: STREAMING SHUFFLED COMBINATIONS TO PARQUET (parallel row building, blended affinity)
     # =========================================================================================
     print("\nStep 7: Streaming Shuffled Combinations to Parquet with Progress...")
     start_write_time = time.time()
@@ -566,7 +577,7 @@ def prepare_dataset(config):
     competitor_fraction = (num_comps_with_seq / len(competitors_augmented)) if competitors_augmented else 0.0
 
     est_total_rows = int(total_combinations_count * (1 + competitor_fraction))
-    PARQUET_BATCH_SIZE = 1_000_000  # fixed as per your request
+    PARQUET_BATCH_SIZE = 1_000_000
     est_parts = math.ceil(est_total_rows / PARQUET_BATCH_SIZE) if PARQUET_BATCH_SIZE > 0 else 0
 
     print(f"  - Competitor fraction (by catalog): {competitor_fraction:.2%}")
@@ -574,16 +585,23 @@ def prepare_dataset(config):
     print(f"  - PARQUET_BATCH_SIZE: {PARQUET_BATCH_SIZE:,}")
     print(f"  - Estimated number of part files: {est_parts:,}")
 
-    # --- Family prior map ---
+    # --- Family prior map and typical seed map ---
     family_prior_map = data_sources.get('affinity', {})
+    family_typical_seed_map = data_sources.get('family_typical_seed', {})
+
+    # --- Seed length threshold ---
+    max_seed_len = 30  # sequences longer than this are treated as precursors
 
     pbar = tqdm(total=total_combinations_count, desc="  Writing to Parquet")
 
     for chunk in chunked(combination_generator, CHUNK_SIZE):
         random.shuffle(chunk)
 
-        # Prepare arguments for the pool
-        arg_iter = ((p, t, c, family_prior_map) for p, t, c in chunk)
+        max_seed_len = 30  # threshold for long sequences
+        arg_iter = (
+            (p, t, c, family_prior_map, family_typical_seed_map, max_seed_len)
+            for p, t, c in chunk
+        )
 
         with Pool(processes=max(1, cpu_count() - 1)) as pool:
             for rows in pool.imap_unordered(build_rows_for_combo, arg_iter, chunksize=2000):
@@ -592,7 +610,6 @@ def prepare_dataset(config):
                     flush_parquet_buffer()
                 pbar.update(1)
 
-    # Final flush
     flush_parquet_buffer()
     pbar.close()
 
