@@ -15,7 +15,6 @@ import pyarrow as pa
 import pyarrow.parquet as pq
 import pyarrow.dataset as ds
 import math
-from multiprocessing import Pool, cpu_count
 import random
 
 # Reproducibility
@@ -123,23 +122,23 @@ def run_id_matching_diagnostics(mirna_data, affinity_data):
 # ==============================
 # PROXY-LABEL HELPERS
 # ==============================
-def seed_match_score(mirna_u, target_u):
+def seed_match_score(mirna_u, target_u, seed_len=7):
     m = (mirna_u or "").replace('T','U').upper()
     t = (target_u or "").replace('T','U').upper()
-    if len(m) < 8 or len(t) < 8:
+    if len(m) < seed_len + 1 or len(t) < seed_len:
         return 0.0, 0
-    seed = m[1:8]  # positions 2–8
+    seed = m[1:1+seed_len]
     comp = str.maketrans('AUGC', 'UACG')
     seed_comp = seed.translate(comp)
     best = 0
     best_pos = 0
-    for i in range(0, len(t) - 6):
-        window = t[i:i+7]
+    for i in range(0, len(t) - seed_len + 1):
+        window = t[i:i+seed_len]
         matches = sum(1 for a, b in zip(seed_comp, window) if a == b)
         if matches > best:
             best = matches
             best_pos = i
-    return best / 7.0, best_pos
+    return best / seed_len, best_pos
 
 def gc_strength_score(mirna_u, target_u, start_pos):
     m = (mirna_u or "").replace('T','U').upper()
