@@ -581,7 +581,7 @@ def prepare_dataset(config):
         mirna_seq = mol.get('sequence', '')
         if not mirna_seq:
             continue
-        family_key = mirna_id.split('-')[0]  # adjust if your family naming differs
+        family_key = mirna_id.strip().split(' ')[0]  # adjust if your family naming differs
         seed = mirna_seq[:7]
         family_seed_counts[family_key][seed] += 1
 
@@ -645,8 +645,9 @@ def prepare_dataset(config):
         return p_idx, t_idx, c_idx
 
     # --- Prepare progress bar over K selected combinations
-    from tqdm import tqdm
-    pbar = tqdm(total=K, desc="  Building selected combos")
+    from tqdm import tqdm as tqdm_progress
+
+    pbar = tqdm_progress(total=K, desc="  Building selected combos")
 
     # --- Rolling shuffle writer state (reuse your previously-initialized vars if present) ---
     # buffer, parquet_schema, part_idx, total_rows_written, output_base, PARQUET_COMPRESSION must exist
@@ -683,15 +684,24 @@ def prepare_dataset(config):
             yield (p, t, c, family_prior_map, family_typical_seed_map, 30)
 
     # Use a single Pool for throughput
-    with Pool(processes=max(1, cpu_count() - 1)) as pool:
-        for rows in pool.imap_unordered(build_rows_for_combo, selected_args_iter(), chunksize=2000):
-            # rows: list of 1 (null competitor) or 2 (real competitor) dicts
-            buffer.extend(rows)
+    DEBUG_NO_MP = False  # set True to debug serially, False for full-speed multiprocessing
 
+    if DEBUG_NO_MP:
+        # Serial path: easy to see exceptions, slower
+        for args in selected_args_iter():
+            rows = build_rows_for_combo(args)
+            buffer.extend(rows)
             if len(buffer) >= SHUFFLE_BUFFER_ROWS:
                 flush_some_rows_portion(FLUSH_PORTION)
-
             pbar.update(1)
+    else:
+        # Parallel path: fast
+        with Pool(processes=max(1, cpu_count() - 1)) as pool:
+            for rows in pool.imap_unordered(build_rows_for_combo, selected_args_iter(), chunksize=1000):
+                buffer.extend(rows)
+                if len(buffer) >= SHUFFLE_BUFFER_ROWS:
+                    flush_some_rows_portion(FLUSH_PORTION)
+                pbar.update(1)
 
     # Final flush of whatever remains
     flush_some_rows_portion(portion=1.0)

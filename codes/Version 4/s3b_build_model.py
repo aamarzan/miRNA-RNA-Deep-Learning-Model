@@ -25,9 +25,6 @@ from tensorflow.keras.regularizers import l2
 import datetime
 import time
 from spektral.layers import GCSConv
-import matplotlib
-matplotlib.use('Agg')  # Safe for headless servers
-import matplotlib.pyplot as plt
 
 # --- Configuration Loader ---
 def load_config(config_path=None):
@@ -120,57 +117,6 @@ class HistoryLogger(tf.keras.callbacks.Callback):
         with open(self.filepath, 'w') as f:
             json.dump(history_for_json, f)
         print(f" - History updated and saved to {self.filepath}")
-
-# --- New: Live loss plotting ---
-class LivePlotCallback(tf.keras.callbacks.Callback):
-    def __init__(self, save_dir):
-        super().__init__()
-        self.save_dir = save_dir
-        self.history = {'loss': [], 'val_loss': []}
-        os.makedirs(self.save_dir, exist_ok=True)
-
-    def on_epoch_end(self, epoch, logs=None):
-        logs = logs or {}
-        self.history['loss'].append(logs.get('loss'))
-        self.history['val_loss'].append(logs.get('val_loss'))
-
-        plt.figure(figsize=(8, 5))
-        plt.plot(self.history['loss'], label='Train Loss', marker='o')
-        plt.plot(self.history['val_loss'], label='Val Loss', marker='o')
-        plt.xlabel('Epoch')
-        plt.ylabel('Loss')
-        plt.title('Training vs Validation Loss')
-        plt.legend()
-        plt.grid(True)
-        plt.tight_layout()
-        plot_path = os.path.join(self.save_dir, f'loss_curve_epoch_{epoch+1}.png')
-        plt.savefig(plot_path, dpi=150)
-        plt.close()
-
-# --- New: Validation sample predictions ---
-class ValidationSampleCallback(tf.keras.callbacks.Callback):
-    def __init__(self, val_gen, save_dir):
-        super().__init__()
-        self.val_gen = val_gen
-        self.save_dir = save_dir
-        os.makedirs(self.save_dir, exist_ok=True)
-
-    def on_epoch_end(self, epoch, logs=None):
-        X_val, y_val = self.val_gen[0][:2]
-        y_pred = self.model.predict(X_val, verbose=0).ravel()
-        y_val_sq = np.square(y_val)
-        y_pred_sq = np.square(y_pred)
-
-        plt.figure(figsize=(6, 6))
-        plt.scatter(y_val_sq, y_pred_sq, alpha=0.5)
-        plt.plot([0, 1], [0, 1], 'r--')
-        plt.xlabel('Actual Affinity')
-        plt.ylabel('Predicted Affinity')
-        plt.title(f'Pred vs Actual (Epoch {epoch+1})')
-        plt.tight_layout()
-        plot_path = os.path.join(self.save_dir, f'val_scatter_epoch_{epoch+1}.png')
-        plt.savefig(plot_path, dpi=150)
-        plt.close()
 
 # --- Custom Model Layers ---
 class PositionalEncoding(Layer):
@@ -344,9 +290,7 @@ if __name__ == "__main__":
         EarlyStopping(monitor='val_loss', patience=adv_params.get('early_stopping_patience', 10), mode='min', restore_best_weights=True),
         ReduceLROnPlateau(monitor='val_loss', factor=0.2, patience=5, min_lr=1e-6),
         TensorBoard(log_dir=log_dir),
-        HistoryLogger(filepath=history_filepath), # Our custom history saver
-         LivePlotCallback(save_dir=logs_dir),  # <-- inserted here
-        ValidationSampleCallback(val_gen=test_generator, save_dir=logs_dir)  # <-- inserted here
+        HistoryLogger(filepath=history_filepath) # Our custom history saver
     ]
     print(f"  - Model checkpoints will be saved to: {model_filepath}")
     print(f"  - TensorBoard logs will be saved to: {log_dir}")
