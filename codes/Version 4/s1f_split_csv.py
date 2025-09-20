@@ -45,10 +45,10 @@ else:
         
         # Calculate chunk size
         total_rows = len(df)
-        chunk_size = math.ceil(total_rows / 100)  # split into 100 parts
+        chunk_size = math.ceil(total_rows / 10)  # split into 100 parts
         
         # Split and save
-        for i in range(100):
+        for i in range(10):
             start_row = i * chunk_size
             end_row = start_row + chunk_size
             chunk_df = df.iloc[start_row:end_row]
