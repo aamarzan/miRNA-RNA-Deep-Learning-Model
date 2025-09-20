@@ -231,52 +231,80 @@ def build_rows_for_combo(args):
     """
     Top-level row builder for multiprocessing.
     Args:
-        args: tuple of (primary_data, target_data, competitor_data, family_prior_map, family_typical_seed_map, max_seed_len)
+        args: tuple of (
+            primary_data: dict,
+            target_data: dict,
+            competitor_data: dict,
+            family_prior_map: dict,
+            family_typical_seed_map: dict,
+            max_seed_len: int
+        )
     Returns:
         list of 1 or 2 row dicts
     """
-    primary_data, target_data, competitor_data, family_prior_map, family_typical_seed_map, max_seed_len = args
+    (
+        primary_data,
+        target_data,
+        competitor_data,
+        family_prior_map,
+        family_typical_seed_map,
+        max_seed_len
+    ) = args
 
+    # Inputs
     mirna_id = primary_data.get('id')
+    # Prefer mature_sequence if present, else fallback to full sequence
     mirna_seq = primary_data.get('mature_sequence', primary_data.get('sequence', ''))
     target_seq = target_data.get('sequence', '')
     comp_seq = competitor_data.get('sequence', '')
 
-    # Pairwise label components
-    seed_score, seed_pos = seed_match_score(mirna_seq, target_seq, max_seed_len)
-    gc_score = gc_strength_score(mirna_seq, target_seq, seed_pos)
-    acc_score = accessibility_score(target_data.get('structure_vector', '[]'), seed_pos, max_seed_len)
+    # Consistent seed window length
+    seed_len = 7
 
+    # Pairwise label components (no-competitor)
+    seed_score, seed_pos = seed_match_score(mirna_seq, target_seq)  # returns (score in [0,1], best_pos)
+    gc_score = gc_strength_score(mirna_seq, target_seq, seed_pos)
+    acc_score = accessibility_score(
+        target_data.get('structure_vector', '[]'),
+        start_pos=seed_pos,
+        length=seed_len
+    )
+
+    # Family prior and conservation
     family_key = mirna_id.strip().split(' ')[0]
     fam_prior_raw = family_prior_map.get(mirna_id, 0.0)
     fam_prior = normalize_01(fam_prior_raw, 0.0, 1.0)
     cons_raw = primary_data.get('conservation', 0.0)
     cons_n = normalize_01(cons_raw, 0.0, 1.0)
 
-    # Typical seed similarity bonus
+    # Typical seed similarity: compare 7-mer (positions 2–8) to typical 7-mer
     typical_seed = family_typical_seed_map.get(family_key, '')
-    seed_region = mirna_seq[1:1+max_seed_len]
-    seed_similarity = sum(1 for a, b in zip(seed_region, typical_seed) if a == b)
-    seed_similarity_score = seed_similarity / max_seed_len if typical_seed else 0.0
+    seed_region = mirna_seq[1:1+seed_len]  # 7-mer starting at position 2 (1-based)
+    if typical_seed:
+        seed_similarity = sum(1 for a, b in zip(seed_region, typical_seed[:seed_len]) if a == b)
+        seed_similarity_score = seed_similarity / float(seed_len)
+    else:
+        seed_similarity_score = 0.0
 
-    # Combine into pairwise label
+    # Combine into pairwise label (weights preserved)
     w_seed, w_gc, w_acc, w_prior, w_cons, w_typical = 0.30, 0.15, 0.20, 0.15, 0.10, 0.10
-    L_pair = normalize_01(
+    L_pair_raw = (
         w_seed * seed_score +
         w_gc * gc_score +
         w_acc * acc_score +
         w_prior * fam_prior +
         w_cons * cons_n +
-        w_typical * seed_similarity_score,
-        0.0, 1.0
+        w_typical * seed_similarity_score
     )
+    L_pair = normalize_01(L_pair_raw, 0.0, 1.0)
 
-    # Competitor effect
+    # Competitor effect: proportional reduction to avoid collapsing to 0
+    beta = 0.5  # tune 0.4–0.6
     comp_prop = competitor_propensity_score(comp_seq, target_seq) if comp_seq else 0.0
-    beta = 0.6
-    L_with_comp = max(0.0, L_pair - beta * comp_prop)
+    L_with_comp = L_pair * (1.0 - beta * comp_prop)
+    L_with_comp = max(0.0, min(1.0, L_with_comp))
 
-    # Baseline row
+    # Baseline (no competitor)
     row_base = {
         'primary_id': mirna_id,
         'primary_sequence': mirna_seq,
@@ -293,6 +321,8 @@ def build_rows_for_combo(args):
     }
 
     rows = [row_base]
+
+    # With competitor
     if comp_seq:
         row_comp = dict(row_base)
         row_comp['competitor_id'] = competitor_data.get('id')
@@ -301,6 +331,7 @@ def build_rows_for_combo(args):
         rows.append(row_comp)
 
     return rows
+
 
 # --- Predict mature region from precursor sequence ---
 def predict_mature_region(seq, window=22):
@@ -550,7 +581,7 @@ def prepare_dataset(config):
         mirna_seq = mol.get('sequence', '')
         if not mirna_seq:
             continue
-        family_key = mirna_id.split('-')[0]  # adjust if your family naming differs
+        family_key = mirna_id.strip().split(' ')[0]  # adjust if your family naming differs
         seed = mirna_seq[:7]
         family_seed_counts[family_key][seed] += 1
 
@@ -562,57 +593,114 @@ def prepare_dataset(config):
 
     print(f"  - Auto-generated typical seeds for {len(family_typical_seed_map)} families")
 
+    family_prior_map = data_sources.get('affinity', {})
     
     # =========================================================================================
-    # STEP 7: STREAMING SHUFFLED COMBINATIONS TO PARQUET (parallel row building, blended affinity)
+    # STEP 7: PRESELECTED SAMPLING (unbiased ~200k rows), memory-safe shuffle & write
     # =========================================================================================
-    print("\nStep 7: Streaming Shuffled Combinations to Parquet with Progress...")
+    print("\nStep 7: Preselecting combinations for ~200k rows (unbiased), then building & writing...")
     start_write_time = time.time()
 
-    # --- Diagnostics before writing ---
-    num_comps_with_seq = sum(1 for c in competitors_augmented if c.get('sequence', ''))
-    competitor_fraction = (num_comps_with_seq / len(competitors_augmented)) if competitors_augmented else 0.0
+    # --- Diagnostics & parameters ---
+    P = len(balanced_primary_molecules)
+    T = len(target_molecules)
+    C_plus_1 = len(competitors_augmented)  # includes explicit NULL competitor
+    C_real = max(0, C_plus_1 - 1)          # real competitors (with non-empty sequences)
 
-    est_total_rows = int(total_combinations_count * (1 + competitor_fraction))
-    PARQUET_BATCH_SIZE = 1_000_000
-    est_parts = math.ceil(est_total_rows / PARQUET_BATCH_SIZE) if PARQUET_BATCH_SIZE > 0 else 0
+    N_combos = P * T * C_plus_1             # total combinations (generator size)
+    print(f"  - P (miRNAs): {P:,}, T (targets): {T:,}, (C+1) competitors (incl. null): {C_plus_1:,}")
+    print(f"  - Total combinations (P*T*(C+1)): {N_combos:,}")
 
-    print(f"  - Competitor fraction (by catalog): {competitor_fraction:.2%}")
-    print(f"  - Estimated total rows: {est_total_rows:,}")
-    print(f"  - PARQUET_BATCH_SIZE: {PARQUET_BATCH_SIZE:,}")
-    print(f"  - Estimated number of part files: {est_parts:,}")
+    # Expected rows per combination with current builder:
+    #   Null competitor combo -> 1 row
+    #   Real competitor combo -> 2 rows (baseline + with-competitor)
+    #   Prob(null) = 1/(C+1), Prob(real) = C/(C+1)
+    #   E[rows/combo] = (1 * 1/(C+1)) + (2 * C/(C+1)) = (1 + 2C)/(C+1)
+    expected_rows_per_combo = (1 + 2 * C_real) / float(C_plus_1)
 
-    # --- Family prior map and typical seed map ---
-    family_prior_map = data_sources.get('affinity', {})
-    family_typical_seed_map = data_sources.get('family_typical_seed', {})
+    # --- Config knobs ---
+    dp = config.get('data_processing', {})
+    TARGET_ROWS = int(dp.get('target_rows', 200_000))  # your requested target
+    SHUFFLE_BUFFER_ROWS = int(dp.get('shuffle_buffer_rows', 1_000_000))
+    FLUSH_PORTION = float(dp.get('shuffle_flush_portion', 0.5))
+    assert 0 < FLUSH_PORTION <= 1.0, "shuffle_flush_portion must be in (0, 1]"
 
-    # --- Seed length threshold ---
-    max_seed_len = 30  # sequences longer than this are treated as precursors
+    # Compute number of combinations to preselect to hit ~TARGET_ROWS in expectation
+    K = max(1, int(round(TARGET_ROWS / expected_rows_per_combo)))
+    K = min(K, N_combos)  # guard
+    print(f"  - Target rows: {TARGET_ROWS:,}")
+    print(f"  - Expected rows/combination: {expected_rows_per_combo:.5f}")
+    print(f"  - Preselecting K combinations: {K:,} (unbiased)")
 
-    pbar = tqdm(total=total_combinations_count, desc="  Writing to Parquet")
+    # --- Preselect K unique flat indices uniformly from [0, N_combos)
+    # Reproducible because random.seed(42) is set at top of script
+    selected_indices = set(random.sample(range(N_combos), K))
 
-    for chunk in chunked(combination_generator, CHUNK_SIZE):
-        random.shuffle(chunk)
+    # --- Helper to map flat index -> (p_idx, t_idx, c_idx)
+    def index_to_ptc(idx, P, T, C1):
+        c_idx = idx % C1
+        tmp = idx // C1
+        t_idx = tmp % T
+        p_idx = tmp // T
+        return p_idx, t_idx, c_idx
 
-        max_seed_len = 30  # threshold for long sequences
-        arg_iter = (
-            (p, t, c, family_prior_map, family_typical_seed_map, max_seed_len)
-            for p, t, c in chunk
-        )
+    # --- Prepare progress bar over K selected combinations
+    from tqdm import tqdm
+    pbar = tqdm(total=K, desc="  Building selected combos")
 
-        with Pool(processes=max(1, cpu_count() - 1)) as pool:
-            for rows in pool.imap_unordered(build_rows_for_combo, arg_iter, chunksize=2000):
-                buffer.extend(rows)
-                if len(buffer) >= PARQUET_BATCH_SIZE:
-                    flush_parquet_buffer()
-                pbar.update(1)
+    # --- Rolling shuffle writer state (reuse your previously-initialized vars if present) ---
+    # buffer, parquet_schema, part_idx, total_rows_written, output_base, PARQUET_COMPRESSION must exist
+    def flush_some_rows_portion(portion=FLUSH_PORTION):
+        nonlocal buffer, parquet_schema, part_idx, total_rows_written
+        if not buffer:
+            return
+        random.shuffle(buffer)
+        n_write = max(1, int(len(buffer) * portion))
+        to_write = buffer[:n_write]
+        buffer = buffer[n_write:]
 
-    flush_parquet_buffer()
+        table = pa.Table.from_pylist(to_write, schema=parquet_schema)
+        if parquet_schema is None:
+            parquet_schema = table.schema
+            table = table.cast(parquet_schema)
+        else:
+            table = table.cast(parquet_schema)
+
+        part_path = f"{output_base}_part{part_idx:05d}.parquet"
+        pq.write_table(table, part_path, compression=PARQUET_COMPRESSION)
+        total_rows_written += len(to_write)
+        part_idx += 1
+
+    # --- Build only the preselected combinations, in parallel, memory-safe ---
+    # Create an iterator over the selected p,t,c triples without materializing them all at once
+    def selected_args_iter():
+        # Iterate in any order; mixing is handled by buffer shuffle
+        for idx in selected_indices:
+            p_idx, t_idx, c_idx = index_to_ptc(idx, P, T, C_plus_1)
+            p = balanced_primary_molecules[p_idx]
+            t = target_molecules[t_idx]
+            c = competitors_augmented[c_idx]
+            yield (p, t, c, family_prior_map, family_typical_seed_map, 30)
+
+    # Use a single Pool for throughput
+    with Pool(processes=max(1, cpu_count() - 1)) as pool:
+        for rows in pool.imap_unordered(build_rows_for_combo, selected_args_iter(), chunksize=2000):
+            # rows: list of 1 (null competitor) or 2 (real competitor) dicts
+            buffer.extend(rows)
+
+            if len(buffer) >= SHUFFLE_BUFFER_ROWS:
+                flush_some_rows_portion(FLUSH_PORTION)
+
+            pbar.update(1)
+
+    # Final flush of whatever remains
+    flush_some_rows_portion(portion=1.0)
     pbar.close()
 
     end_write_time = time.time()
     print(f"\n  - Wrote {total_rows_written:,} rows across {part_idx} Parquet part files (prefix: {os.path.basename(output_base)}).")
     print(f"  - Time taken for this step: {end_write_time - start_write_time:.2f} seconds")
+    print(f"  - Notes: Preselected K={K:,} combos from N={N_combos:,}; expected rows/combo={expected_rows_per_combo:.5f}")
 
 # ==============================
 # ENTRY POINT

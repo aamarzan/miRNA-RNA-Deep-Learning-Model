@@ -59,10 +59,12 @@
         "max_gc_content": 0.90
     },
     "data_processing": {
-        "batch_size_parquet": 10000,
-        "dl_sub_batch_size": 10000,
+        "parquet_output_prefix": "training_combinations",
         "parquet_compression": "snappy",
-        "parquet_output_prefix": "training_combinations"
+        "batch_size_parquet": 1000000,
+        "shuffle_buffer_rows": 1000000,
+        "shuffle_flush_portion": 0.5,
+        "target_rows": 200000                   
     },
     "dataset_splitting": {
         "_comment": "Parameters for Stage 1b (s1b_split_dataset.py).",
