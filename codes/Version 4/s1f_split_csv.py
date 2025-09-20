@@ -1,64 +1,43 @@
-import json
+import os
 import pandas as pd
-from pathlib import Path
 import math
 
-# 1️⃣ Find config.json automatically
-script_dir = Path(__file__).resolve().parent
-config_path = None
+# === CONFIG ===
+folder_path = r"E:\1. Github\1. miRNA-RNA-Deep-Learning-Model\dataset\prepared_dataset"
+num_parts = 10  # number of Excel files to create
 
-for parent in [script_dir] + list(script_dir.parents):
-    possible = parent / "config.json"
-    if possible.exists():
-        config_path = possible
-        break
+# --- Find latest parquet file ---
+parquet_files = [f for f in os.listdir(folder_path) if f.endswith(".parquet")]
+if not parquet_files:
+    raise FileNotFoundError(f"No parquet files found in {folder_path}")
 
-if not config_path:
-    raise FileNotFoundError("config.json not found in script directory or any parent folders.")
+parquet_files.sort(key=lambda f: os.path.getmtime(os.path.join(folder_path, f)), reverse=True)
+file_path = os.path.join(folder_path, parquet_files[0])
 
-# 2️⃣ Load config.json
-with open(config_path, "r") as f:
-    config = json.load(f)
+print(f"📂 Processing file: {file_path}")
 
-print(f"✅ Loaded config from: {config_path}")
+# --- Load full dataset ---
+df = pd.read_parquet(file_path)
 
-# 3️⃣ Get project_root from config
-project_root = Path(config["project_root"])
+# --- Save full dataset to Excel ---
+full_excel_path = os.path.join(folder_path, "full_dataset.xlsx")
+df.to_excel(full_excel_path, index=False)
+print(f"✅ Saved full dataset to: {full_excel_path} ({len(df):,} rows)")
 
-# 4️⃣ Path to the for_convertion folder
-conversion_folder = project_root / "dataset" / "prepared_dataset" / "for_convertion"
+# --- Shuffle to ensure unbiased split ---
+df = df.sample(frac=1, random_state=42).reset_index(drop=True)
 
-if not conversion_folder.exists():
-    raise FileNotFoundError(f"Conversion folder not found: {conversion_folder}")
+# --- Calculate chunk size ---
+rows_per_part = math.ceil(len(df) / num_parts)
 
-# 5️⃣ Find CSV files in the folder
-csv_files = list(conversion_folder.glob("*.csv"))
+# --- Split and save ---
+for i in range(num_parts):
+    start_idx = i * rows_per_part
+    end_idx = min((i + 1) * rows_per_part, len(df))
+    part_df = df.iloc[start_idx:end_idx]
+    
+    out_path = os.path.join(folder_path, f"part_{i+1:02d}.xlsx")
+    part_df.to_excel(out_path, index=False)
+    print(f"✅ Saved {out_path} with {len(part_df):,} rows")
 
-if not csv_files:
-    print("⚠️ No CSV files found in the conversion folder.")
-else:
-    for csv_file in csv_files:
-        print(f"📂 Splitting file: {csv_file.name}")
-        
-        # Read CSV file
-        df = pd.read_csv(csv_file)
-        
-        # Calculate chunk size
-        total_rows = len(df)
-        chunk_size = math.ceil(total_rows / 10)  # split into 100 parts
-        
-        # Split and save
-        for i in range(10):
-            start_row = i * chunk_size
-            end_row = start_row + chunk_size
-            chunk_df = df.iloc[start_row:end_row]
-            
-            if chunk_df.empty:
-                break  # stop if no more rows
-            
-            part_filename = csv_file.stem + f"_part_{i+1}.csv"
-            chunk_df.to_csv(conversion_folder / part_filename, index=False)
-            print(f"✅ Saved: {part_filename}")
-        
-    print("🎯 Splitting done!")
-
+print("\n🎯 Done — full dataset and all parts saved as Excel files.")
