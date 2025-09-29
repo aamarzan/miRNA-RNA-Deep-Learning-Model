@@ -61,12 +61,12 @@ resume_callbacks = [
 ]
 
 # --- Resume training ---
-print("\nResuming training from Epoch 51...")
+print("\nResuming training from Epoch 71...")
 model.fit(
     train_gen,
     validation_data=test_gen,
     epochs=params['epochs'],
-    initial_epoch=51,
+    initial_epoch=71,
     callbacks=resume_callbacks,
     verbose=1
 )
