@@ -672,8 +672,7 @@ def prepare_dataset(config):
         total_rows_written += len(to_write)
         part_idx += 1
 
-    # --- Build only the preselected combinations, in parallel, memory-safe ---
-    # Create an iterator over the selected p,t,c triples without materializing them all at once
+    # Build only the preselected combinations, in parallel, memory-safe and Create an iterator over the selected p,t,c triples without materializing them all at once
     def selected_args_iter():
         # Iterate in any order; mixing is handled by buffer shuffle
         for idx in selected_indices:
