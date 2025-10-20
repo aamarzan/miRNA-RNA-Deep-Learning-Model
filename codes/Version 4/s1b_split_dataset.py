@@ -6,7 +6,7 @@ import numpy as np
 
 
 # === CONFIGURATION ===
-# Path to your prepared_dataset folder
+# Path to prepared_dataset folder
 prepared_folder = r"E:\1. Github\1. miRNA-RNA-Deep-Learning-Model\dataset\prepared_dataset"
 
 # Input Parquet file (auto-detect latest if empty)
