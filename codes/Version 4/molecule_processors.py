@@ -359,7 +359,6 @@ def process_molecule_universal(args):
         'adjacency_matrix': json.dumps(adjacency_matrix.tolist())
     }
 
-
 # ==============================
 # PROCESSOR MAP
 # ==============================
