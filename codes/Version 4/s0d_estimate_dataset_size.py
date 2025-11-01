@@ -6,6 +6,7 @@ import pandas as pd
 import glob
 import time
 
+
 def load_config(config_path=None):
     """Loads and returns the configuration file."""
     if config_path is None:
