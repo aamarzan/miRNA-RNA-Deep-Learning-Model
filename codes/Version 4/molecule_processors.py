@@ -15,7 +15,6 @@ import warnings
 from Bio.PDB import PDBParser, MMCIFParser, PDBExceptions
 from Bio.PDB.Polypeptide import protein_letters_3to1_extended as aa3to1
 
-
 # ==============================
 # CONFIGURATION LOADER
 # ==============================
