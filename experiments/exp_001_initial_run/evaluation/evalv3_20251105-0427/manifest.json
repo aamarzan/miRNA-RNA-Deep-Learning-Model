@@ -1,0 +1,45 @@
+{
+  "meta": {
+    "timestamp": "20251105-0427",
+    "config_path": "E:\\1. Github\\1. miRNA-RNA-Deep-Learning-Model\\codes\\Version 4\\config.json",
+    "config_sha1": "d0aae492b06044f50e6f15e861b926d351856a47",
+    "model_path": "E:\\1. Github\\1. miRNA-RNA-Deep-Learning-Model\\experiments\\exp_001_initial_run\\models\\best_supreme_model.keras",
+    "history_path": "E:\\1. Github\\1. miRNA-RNA-Deep-Learning-Model\\experiments\\exp_001_initial_run\\models\\history_supreme_model.json",
+    "data_path": "E:\\1. Github\\1. miRNA-RNA-Deep-Learning-Model\\dataset\\processed_for_dl",
+    "stdnames": true
+  },
+  "metrics": {
+    "R2": 0.8838102221488953,
+    "pearson_r": 0.9401648044586182,
+    "MSE": 0.0024253816809505224,
+    "MAE": 0.03749597445130348
+  },
+  "files": {
+    "figures": [
+      "E:/1. Github/1. miRNA-RNA-Deep-Learning-Model\\experiments\\exp_001_initial_run\\evaluation\\evalv3_20251105-0427\\Figure3a_pred_vs_obs.png",
+      "E:/1. Github/1. miRNA-RNA-Deep-Learning-Model\\experiments\\exp_001_initial_run\\evaluation\\evalv3_20251105-0427\\Figure3a_pred_vs_obs.pdf",
+      "E:/1. Github/1. miRNA-RNA-Deep-Learning-Model\\experiments\\exp_001_initial_run\\evaluation\\evalv3_20251105-0427\\Figure3a_pred_vs_obs.svg",
+      "E:/1. Github/1. miRNA-RNA-Deep-Learning-Model\\experiments\\exp_001_initial_run\\evaluation\\evalv3_20251105-0427\\Figure3b_residuals_vs_fitted.png",
+      "E:/1. Github/1. miRNA-RNA-Deep-Learning-Model\\experiments\\exp_001_initial_run\\evaluation\\evalv3_20251105-0427\\Figure3b_residuals_vs_fitted.pdf",
+      "E:/1. Github/1. miRNA-RNA-Deep-Learning-Model\\experiments\\exp_001_initial_run\\evaluation\\evalv3_20251105-0427\\Figure3b_residuals_vs_fitted.svg",
+      "E:/1. Github/1. miRNA-RNA-Deep-Learning-Model\\experiments\\exp_001_initial_run\\evaluation\\evalv3_20251105-0427\\Figure3c_residual_histogram.png",
+      "E:/1. Github/1. miRNA-RNA-Deep-Learning-Model\\experiments\\exp_001_initial_run\\evaluation\\evalv3_20251105-0427\\Figure3c_residual_histogram.pdf",
+      "E:/1. Github/1. miRNA-RNA-Deep-Learning-Model\\experiments\\exp_001_initial_run\\evaluation\\evalv3_20251105-0427\\Figure3c_residual_histogram.svg",
+      "E:/1. Github/1. miRNA-RNA-Deep-Learning-Model\\experiments\\exp_001_initial_run\\evaluation\\evalv3_20251105-0427\\Figure3d_qq_plot.png",
+      "E:/1. Github/1. miRNA-RNA-Deep-Learning-Model\\experiments\\exp_001_initial_run\\evaluation\\evalv3_20251105-0427\\Figure3d_qq_plot.pdf",
+      "E:/1. Github/1. miRNA-RNA-Deep-Learning-Model\\experiments\\exp_001_initial_run\\evaluation\\evalv3_20251105-0427\\Figure3d_qq_plot.svg",
+      "E:/1. Github/1. miRNA-RNA-Deep-Learning-Model\\experiments\\exp_001_initial_run\\evaluation\\evalv3_20251105-0427\\Figure3e_bland_altman.png",
+      "E:/1. Github/1. miRNA-RNA-Deep-Learning-Model\\experiments\\exp_001_initial_run\\evaluation\\evalv3_20251105-0427\\Figure3e_bland_altman.pdf",
+      "E:/1. Github/1. miRNA-RNA-Deep-Learning-Model\\experiments\\exp_001_initial_run\\evaluation\\evalv3_20251105-0427\\Figure3e_bland_altman.svg",
+      "E:/1. Github/1. miRNA-RNA-Deep-Learning-Model\\experiments\\exp_001_initial_run\\evaluation\\evalv3_20251105-0427\\Figure4c_reliability_diagram.png",
+      "E:/1. Github/1. miRNA-RNA-Deep-Learning-Model\\experiments\\exp_001_initial_run\\evaluation\\evalv3_20251105-0427\\Figure4c_reliability_diagram.pdf",
+      "E:/1. Github/1. miRNA-RNA-Deep-Learning-Model\\experiments\\exp_001_initial_run\\evaluation\\evalv3_20251105-0427\\Figure4c_reliability_diagram.svg",
+      "E:/1. Github/1. miRNA-RNA-Deep-Learning-Model\\experiments\\exp_001_initial_run\\evaluation\\evalv3_20251105-0427\\FigureS1_training_history.png",
+      "E:/1. Github/1. miRNA-RNA-Deep-Learning-Model\\experiments\\exp_001_initial_run\\evaluation\\evalv3_20251105-0427\\FigureS1_training_history.pdf",
+      "E:/1. Github/1. miRNA-RNA-Deep-Learning-Model\\experiments\\exp_001_initial_run\\evaluation\\evalv3_20251105-0427\\FigureS1_training_history.svg",
+      "E:/1. Github/1. miRNA-RNA-Deep-Learning-Model\\experiments\\exp_001_initial_run\\evaluation\\evalv3_20251105-0427\\FigureS2_error_by_affinity_bin.png",
+      "E:/1. Github/1. miRNA-RNA-Deep-Learning-Model\\experiments\\exp_001_initial_run\\evaluation\\evalv3_20251105-0427\\FigureS2_error_by_affinity_bin.pdf",
+      "E:/1. Github/1. miRNA-RNA-Deep-Learning-Model\\experiments\\exp_001_initial_run\\evaluation\\evalv3_20251105-0427\\FigureS2_error_by_affinity_bin.svg"
+    ]
+  }
+}

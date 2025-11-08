@@ -1,0 +1,5 @@
+Metric,Value
+R-squared (R2 Score),0.6787
+Pearson Correlation (r),0.8255
+Mean Squared Error (MSE),0.0076
+Mean Absolute Error (MAE),0.0641
