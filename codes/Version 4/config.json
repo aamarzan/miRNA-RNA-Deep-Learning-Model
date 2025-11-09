@@ -137,6 +137,7 @@
         "fine_tune_epochs": 30
     },
     "evaluation_parameters": {
+        "classification_cutoff": 0.75,
         "_comment": "Parameters for Stage 5 (s5_evaluate.py).",
         "model_to_evaluate": "best_supreme_model.keras",
         "history_to_load": "history_supreme_model.json",
