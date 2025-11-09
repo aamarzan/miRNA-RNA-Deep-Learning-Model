@@ -331,19 +331,6 @@ def figS7_heteroscedasticity(y_true, y_pred, out_dir, stdnames, bins=20, cmap="v
     resid = y_true - y_pred
     abs_resid = np.abs(resid)
 
-    # --- Sample-level diagnostics (not just binned) ---
-    rho_samp, p_samp = stats.spearmanr(y_pred, abs_resid)   # monotone assoc at full resolution
-    bin_meds_x, bin_meds_y = [], []
-    for lo, hi in zip(edges[:-1], edges[1:]):
-        m = (y_pred >= lo) & ((y_pred < hi) if hi < edges[-1] else (y_pred <= hi))
-        if np.any(m):
-            bin_meds_x.append(np.median(y_pred[m]))
-            bin_meds_y.append(np.median(abs_resid[m]))
-    if len(bin_meds_x) >= 2:
-        slope, intercept = np.polyfit(bin_meds_x, bin_meds_y, 1)
-    else:
-        slope, intercept = (np.nan, np.nan)
-
     # --- Quantile bins on y_pred (equal-frequency) ---
     nb = int(max(5, bins))
     qs = np.linspace(0, 1, nb + 1)
@@ -352,11 +339,13 @@ def figS7_heteroscedasticity(y_true, y_pred, out_dir, stdnames, bins=20, cmap="v
     if edges.size < 4:
         edges = np.linspace(y_pred.min(), y_pred.max(), nb + 1)
 
-    # Use quantile mid-points for centers (not simple value midpoints)
+    # Centers for plotting (quantile mid-points)
     centers_q = 0.5 * (qs[:-1] + qs[1:])
     centers = np.quantile(y_pred, centers_q)
 
+    # --- Per-bin summaries (means/SE and medians for a robust slope) ---
     mean_abs, se_abs, counts = [], [], []
+    bin_meds_x, bin_meds_y = [], []
     for lo, hi in zip(edges[:-1], edges[1:]):
         m = (y_pred >= lo) & ((y_pred < hi) if hi < edges[-1] else (y_pred <= hi))
         vals = abs_resid[m]
@@ -366,17 +355,37 @@ def figS7_heteroscedasticity(y_true, y_pred, out_dir, stdnames, bins=20, cmap="v
         else:
             mean_abs.append(float(np.mean(vals)))
             se_abs.append(float(_se(vals)))
+            bin_meds_x.append(float(np.median(y_pred[m])))
+            bin_meds_y.append(float(np.median(abs_resid[m])))
 
     mean_arr = np.array(mean_abs)
 
-    # Spearman using actual centers (more meaningful than bin index)
+    # --- Correlations ---
+    # Sample-level monotone association (ground truth)
+    rho_samp, p_samp = stats.spearmanr(y_pred, abs_resid)
+
+    # Bin-level correlation using actual bin centers (avoid using just indices)
+    centers_bins = 0.5 * (edges[:-1] + edges[1:])
     good = np.isfinite(mean_arr)
-    if good.sum() >= 3:
-        rho_bin, p_bin = stats.spearmanr(centers[good], mean_arr[good])
+    if np.sum(good) >= 3:
+        rho_bin, p_bin = stats.spearmanr(centers_bins[good], mean_arr[good])
     else:
         rho_bin, p_bin = (np.nan, np.nan)
 
-    # --- Figure (same look, with added stats) ---
+    # --- Robust slope of |residual| vs predicted ---
+    slope_label = "Theil–Sen slope"
+    try:
+        slope_ts, intercept_ts, _, _ = stats.theilslopes(abs_resid, y_pred)
+        slope, intercept = float(slope_ts), float(intercept_ts)
+    except Exception:
+        slope_label = "Robust slope (bin-median fit)"
+        if len(bin_meds_x) >= 2:
+            slope, intercept = np.polyfit(np.array(bin_meds_x), np.array(bin_meds_y), 1)
+            slope, intercept = float(slope), float(intercept)
+        else:
+            slope, intercept = (np.nan, np.nan)
+
+    # --- Figure ---
     fig, ax = plt.subplots(figsize=golden_figsize(6.0))
     sc = ax.scatter(centers, mean_arr, c=counts, cmap=cmap, s=60, zorder=3)
     ax.errorbar(centers, mean_arr, yerr=se_abs, fmt="none", ecolor="k",
@@ -386,7 +395,7 @@ def figS7_heteroscedasticity(y_true, y_pred, out_dir, stdnames, bins=20, cmap="v
     ax.set_title("Heteroscedasticity by Predicted Quantiles (colored by bin n)")
     cbar = plt.colorbar(sc, ax=ax, pad=0.012); cbar.set_label("Bin count")
 
-    # Overlay a simple robust fit for visual guidance (median-based Theil–Sen)
+    # Overlay robust line if available
     if np.isfinite(slope):
         xs = np.linspace(np.nanmin(centers), np.nanmax(centers), 100)
         ax.plot(xs, intercept + slope * xs, lw=1.0, ls="--", color="k", alpha=0.7)
@@ -394,7 +403,7 @@ def figS7_heteroscedasticity(y_true, y_pred, out_dir, stdnames, bins=20, cmap="v
     _anchored(ax,
               f"Bin Spearman ρ = {rho_bin:.3f} (p={p_bin:.3g})"
               f"\nSample Spearman ρ = {rho_samp:.3f} (p={p_samp:.3g})"
-              f"\nTheil–Sen slope ≈ {slope:.3g}",
+              f"\n{slope_label} ≈ {slope:.3g}",
               loc="upper left")
 
     base = os.path.join(out_dir, "FigureS7_heteroscedasticity_predq" if stdnames else "heteroscedasticity_profile_premium")
@@ -409,7 +418,8 @@ def figS7_heteroscedasticity(y_true, y_pred, out_dir, stdnames, bins=20, cmap="v
         "spearman_pvalue_bin": (None if not np.isfinite(p_bin) else float(p_bin)),
         "spearman_rho_sample": (None if not np.isfinite(rho_samp) else float(rho_samp)),
         "spearman_pvalue_sample": (None if not np.isfinite(p_samp) else float(p_samp)),
-        "theil_sen_slope": (None if not np.isfinite(slope) else float(slope))
+        "theil_sen_slope": (None if not np.isfinite(slope) else float(slope)),
+        "robust_slope_label": slope_label
     }
 
 def figS8_roc_curve(y_true, y_pred, cfg, out_dir, stdnames, cmap="inferno"):
