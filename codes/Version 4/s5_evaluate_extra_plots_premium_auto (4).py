@@ -333,11 +333,16 @@ def figS7_heteroscedasticity(y_true, y_pred, out_dir, stdnames, bins=20, cmap="v
 
     # --- Sample-level diagnostics (not just binned) ---
     rho_samp, p_samp = stats.spearmanr(y_pred, abs_resid)   # monotone assoc at full resolution
-    try:
-        # robust slope of |resid| ~ y_pred (median-based)
-        slope, intercept, lo, hi = stats.theilslopes(abs_resid, y_pred)
-    except Exception:
-        slope, intercept, lo, hi = (np.nan, np.nan, np.nan, np.nan)
+    bin_meds_x, bin_meds_y = [], []
+    for lo, hi in zip(edges[:-1], edges[1:]):
+        m = (y_pred >= lo) & ((y_pred < hi) if hi < edges[-1] else (y_pred <= hi))
+        if np.any(m):
+            bin_meds_x.append(np.median(y_pred[m]))
+            bin_meds_y.append(np.median(abs_resid[m]))
+    if len(bin_meds_x) >= 2:
+        slope, intercept = np.polyfit(bin_meds_x, bin_meds_y, 1)
+    else:
+        slope, intercept = (np.nan, np.nan)
 
     # --- Quantile bins on y_pred (equal-frequency) ---
     nb = int(max(5, bins))
