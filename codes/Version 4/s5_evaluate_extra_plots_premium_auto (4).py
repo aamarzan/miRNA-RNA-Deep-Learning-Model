@@ -130,33 +130,52 @@ def _binarize_ground_truth(y_true, cfg, default_top_frac=0.10):
     return y_bin, rule
 
 def _roc_points(y_true_bin, y_score):
+    """
+    Returns fpr, tpr, thresholds, auc_val, best (thr_best, fpr_best, tpr_best).
+    Uses sklearn if present; otherwise a correct, order-preserving manual impl.
+    """
     y_true_bin = np.asarray(y_true_bin).astype(int)
     y_score = np.asarray(y_score).astype(float)
-    P = np.sum(y_true_bin == 1); N = np.sum(y_true_bin == 0)
+    P = int(np.sum(y_true_bin == 1)); N = int(np.sum(y_true_bin == 0))
     if P == 0 or N == 0:
         return None, None, None, None, None
 
-    order = np.argsort(-y_score)
-    y_sorted = y_true_bin[order]
-    scores_sorted = y_score[order]
+    # 1) Try sklearn (robust and standard)
+    try:
+        from sklearn.metrics import roc_curve, auc
+        fpr, tpr, thresholds = roc_curve(y_true_bin, y_score)  # positive class = 1
+        auc_val = auc(fpr, tpr)
+    except Exception:
+        # 2) Manual, preserving descending score order and distinct thresholds
+        order = np.argsort(y_score)[::-1]              # highest score first
+        y = y_true_bin[order]
+        s = y_score[order]
 
-    uniq_scores, idx = np.unique(scores_sorted, return_index=True)
-    tp = np.cumsum(y_sorted == 1)
-    fp = np.cumsum(y_sorted == 0)
+        # indices where score value changes
+        distinct = np.where(np.diff(s))[0]
+        thr_idx = np.r_[distinct, y.size - 1]         # last index of each block
 
-    last_idx = np.r_[idx[1:] - 1, len(scores_sorted) - 1]
-    tp_at = tp[last_idx]; fp_at = fp[last_idx]
-    tpr = tp_at / max(P, 1); fpr = fp_at / max(N, 1)
-    thresholds = uniq_scores
+        # cumulative TP/FP at these indices
+        tps = np.cumsum(y == 1)[thr_idx]
+        fps = (thr_idx + 1) - tps
 
-    tpr = np.r_[0.0, tpr]; fpr = np.r_[0.0, fpr]; thresholds = np.r_[thresholds[0] + 1e-12, thresholds]
-    tpr = np.r_[tpr, 1.0]; fpr = np.r_[fpr, 1.0]; thresholds = np.r_[thresholds, thresholds[-1] - 1e-12]
+        # rates
+        tpr = tps / P
+        fpr = fps / N
+        thresholds = s[thr_idx]                        # descending
 
-    auc_val = np.trapz(tpr, fpr)
+        # prepend (0,0) and append (1,1)
+        fpr = np.r_[0.0, fpr, 1.0]
+        tpr = np.r_[0.0, tpr, 1.0]
+        thresholds = np.r_[thresholds[0] + 1e-12, thresholds, thresholds[-1] - 1e-12]
+
+        auc_val = np.trapezoid(tpr, fpr)
+
+    # Youden-optimal
     J = tpr - fpr
     j_idx = np.argmax(J)
-    best = (thresholds[j_idx], fpr[j_idx], tpr[j_idx])
-    return fpr, tpr, thresholds, auc_val, best
+    best = (float(thresholds[j_idx]), float(fpr[j_idx]), float(tpr[j_idx]))
+    return fpr, tpr, thresholds, float(auc_val), best
 
 def _pr_points(y_true_bin, y_score):
     y_true_bin = np.asarray(y_true_bin).astype(int)
@@ -308,44 +327,85 @@ def figS6_interval_coverage(y_true,y_pred,out_dir,stdnames,cmap="cividis"):
     return {"mean_abs_calibration_error": mce,
             "levels": cover_levels.tolist(), "observed": observed.tolist()}
 
-def figS7_heteroscedasticity(y_true,y_pred,out_dir,stdnames,bins=20,cmap="viridis"):
-    resid = y_true - y_pred; abs_resid = np.abs(resid)
+def figS7_heteroscedasticity(y_true, y_pred, out_dir, stdnames, bins=20, cmap="viridis"):
+    resid = y_true - y_pred
+    abs_resid = np.abs(resid)
+
+    # --- Sample-level diagnostics (not just binned) ---
+    rho_samp, p_samp = stats.spearmanr(y_pred, abs_resid)   # monotone assoc at full resolution
+    try:
+        # robust slope of |resid| ~ y_pred (median-based)
+        slope, intercept, lo, hi = stats.theilslopes(abs_resid, y_pred)
+    except Exception:
+        slope, intercept, lo, hi = (np.nan, np.nan, np.nan, np.nan)
+
+    # --- Quantile bins on y_pred (equal-frequency) ---
     nb = int(max(5, bins))
-    qs = np.linspace(0, 1, nb+1)
-    edges = np.quantile(y_pred, qs); edges = np.unique(edges)
-    if edges.size < 4: edges = np.linspace(y_pred.min(), y_pred.max(), nb+1)
-    centers = 0.5*(edges[:-1]+edges[1:])
-    mean_abs = []; se_abs = []; counts = []
+    qs = np.linspace(0, 1, nb + 1)
+    edges = np.quantile(y_pred, qs)
+    edges = np.unique(edges)
+    if edges.size < 4:
+        edges = np.linspace(y_pred.min(), y_pred.max(), nb + 1)
+
+    # Use quantile mid-points for centers (not simple value midpoints)
+    centers_q = 0.5 * (qs[:-1] + qs[1:])
+    centers = np.quantile(y_pred, centers_q)
+
+    mean_abs, se_abs, counts = [], [], []
     for lo, hi in zip(edges[:-1], edges[1:]):
-        m = (y_pred >= lo) & ((y_pred < hi) if hi<edges[-1] else (y_pred <= hi))
+        m = (y_pred >= lo) & ((y_pred < hi) if hi < edges[-1] else (y_pred <= hi))
         vals = abs_resid[m]
+        counts.append(int(vals.size))
         if vals.size == 0:
-            mean_abs.append(np.nan); se_abs.append(np.nan); counts.append(0)
+            mean_abs.append(np.nan); se_abs.append(np.nan)
         else:
             mean_abs.append(float(np.mean(vals)))
             se_abs.append(float(_se(vals)))
-            counts.append(int(vals.size))
+
     mean_arr = np.array(mean_abs)
+
+    # Spearman using actual centers (more meaningful than bin index)
+    good = np.isfinite(mean_arr)
+    if good.sum() >= 3:
+        rho_bin, p_bin = stats.spearmanr(centers[good], mean_arr[good])
+    else:
+        rho_bin, p_bin = (np.nan, np.nan)
+
+    # --- Figure (same look, with added stats) ---
     fig, ax = plt.subplots(figsize=golden_figsize(6.0))
     sc = ax.scatter(centers, mean_arr, c=counts, cmap=cmap, s=60, zorder=3)
-    ax.errorbar(centers, mean_arr, yerr=se_abs, fmt="none", ecolor="k", elinewidth=0.9, capsize=3, zorder=2, alpha=0.8)
-    ax.set_xlabel("Predicted value (quantile centers)"); ax.set_ylabel("Mean ± SE |residual|")
+    ax.errorbar(centers, mean_arr, yerr=se_abs, fmt="none", ecolor="k",
+                elinewidth=0.9, capsize=3, zorder=2, alpha=0.8)
+    ax.set_xlabel("Predicted value (quantile centers)")
+    ax.set_ylabel("Mean ± SE |residual|")
     ax.set_title("Heteroscedasticity by Predicted Quantiles (colored by bin n)")
     cbar = plt.colorbar(sc, ax=ax, pad=0.012); cbar.set_label("Bin count")
-    idx = np.arange(mean_arr.size); good = np.isfinite(mean_arr)
-    if good.sum() >= 3:
-        rho, pval = stats.spearmanr(idx[good], mean_arr[good])
-    else:
-        rho, pval = np.nan, np.nan
-    _anchored(ax, f"Spearman ρ = {rho:.3f} (p={pval:.3g})", loc="upper left")
-    base=os.path.join(out_dir,"FigureS7_heteroscedasticity_predq" if stdnames else "heteroscedasticity_profile_premium")
-    _save_all(fig,base)
-    return {"bins": [{"center": float(c), "count": int(n),
-                      "mean_abs_error": (None if not np.isfinite(m) else float(m)),
-                      "se": (None if not np.isfinite(s) else float(s))}
-                     for c,n,m,s in zip(centers, counts, mean_abs, se_abs)] ,
-            "spearman_rho_index_vs_mean_abs_error": (None if not np.isfinite(rho) else float(rho)),
-            "spearman_pvalue": (None if not np.isfinite(pval) else float(pval))}
+
+    # Overlay a simple robust fit for visual guidance (median-based Theil–Sen)
+    if np.isfinite(slope):
+        xs = np.linspace(np.nanmin(centers), np.nanmax(centers), 100)
+        ax.plot(xs, intercept + slope * xs, lw=1.0, ls="--", color="k", alpha=0.7)
+
+    _anchored(ax,
+              f"Bin Spearman ρ = {rho_bin:.3f} (p={p_bin:.3g})"
+              f"\nSample Spearman ρ = {rho_samp:.3f} (p={p_samp:.3g})"
+              f"\nTheil–Sen slope ≈ {slope:.3g}",
+              loc="upper left")
+
+    base = os.path.join(out_dir, "FigureS7_heteroscedasticity_predq" if stdnames else "heteroscedasticity_profile_premium")
+    _save_all(fig, base)
+
+    return {
+        "bins": [{"center": float(c), "count": int(n),
+                  "mean_abs_error": (None if not np.isfinite(m) else float(m)),
+                  "se": (None if not np.isfinite(s) else float(s))}
+                 for c, n, m, s in zip(centers, counts, mean_abs, se_abs)],
+        "spearman_rho_bin_centers_vs_mean_abs": (None if not np.isfinite(rho_bin) else float(rho_bin)),
+        "spearman_pvalue_bin": (None if not np.isfinite(p_bin) else float(p_bin)),
+        "spearman_rho_sample": (None if not np.isfinite(rho_samp) else float(rho_samp)),
+        "spearman_pvalue_sample": (None if not np.isfinite(p_samp) else float(p_samp)),
+        "theil_sen_slope": (None if not np.isfinite(slope) else float(slope))
+    }
 
 def figS8_roc_curve(y_true, y_pred, cfg, out_dir, stdnames, cmap="inferno"):
     y_bin, rule = _binarize_ground_truth(y_true, cfg, default_top_frac=0.10)
