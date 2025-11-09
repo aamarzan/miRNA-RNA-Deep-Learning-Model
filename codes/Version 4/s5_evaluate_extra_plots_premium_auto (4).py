@@ -223,7 +223,7 @@ def figS3_distribution_alignment(y_true,y_pred,out_dir,stdnames,cmap="magma"):
 
 # ---- Colorbar placed far to the right with reserved figure margin
 # Reserve right margin so the right y-axis label never collides with the colorbar
-    fig.subplots_adjust(right=0.76)   # leaves ~24% of figure width on the right
+    fig.subplots_adjust(right=0.72)   # leaves ~28% of figure width on the right
     pos = ax.get_position()
     cbar_left = 0.80                   # absolute figure fraction for colorbar left
     cbar_w   = 0.022                   # colorbar width
@@ -495,7 +495,7 @@ def main():
     if S8.get("available", False):
         manifest["files"]["figures"] += [os.path.join(out_dir,"FigureS8_ROC_curve."+ext) for ext in ("png","svg","pdf")]
 
-    S9 = figS9_pr_curve(y_true, y_pred, cfg, out_dir, True, cmap="cubehelix")
+    S9 = figS9_pr_curve(y_true, y_pred, cfg, out_dir, True, cmap="rainbow")
     manifest["metrics"]["pr_curve"]=S9
     if S9.get("available", False):
         manifest["files"]["figures"] += [os.path.join(out_dir,"FigureS9_PR_curve."+ext) for ext in ("png","svg","pdf")]

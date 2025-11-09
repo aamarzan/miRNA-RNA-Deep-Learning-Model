@@ -1,0 +1,243 @@
+{
+  "n": 40000,
+  "files": {
+    "figures": [
+      "E:/1. Github/1. miRNA-RNA-Deep-Learning-Model\\experiments\\exp_001_initial_run\\evaluation\\evalextra_premium_20251109-2338\\FigureS3_distribution_alignment.png",
+      "E:/1. Github/1. miRNA-RNA-Deep-Learning-Model\\experiments\\exp_001_initial_run\\evaluation\\evalextra_premium_20251109-2338\\FigureS3_distribution_alignment.svg",
+      "E:/1. Github/1. miRNA-RNA-Deep-Learning-Model\\experiments\\exp_001_initial_run\\evaluation\\evalextra_premium_20251109-2338\\FigureS3_distribution_alignment.pdf",
+      "E:/1. Github/1. miRNA-RNA-Deep-Learning-Model\\experiments\\exp_001_initial_run\\evaluation\\evalextra_premium_20251109-2338\\FigureS4_tolerance_accuracy.png",
+      "E:/1. Github/1. miRNA-RNA-Deep-Learning-Model\\experiments\\exp_001_initial_run\\evaluation\\evalextra_premium_20251109-2338\\FigureS4_tolerance_accuracy.svg",
+      "E:/1. Github/1. miRNA-RNA-Deep-Learning-Model\\experiments\\exp_001_initial_run\\evaluation\\evalextra_premium_20251109-2338\\FigureS4_tolerance_accuracy.pdf",
+      "E:/1. Github/1. miRNA-RNA-Deep-Learning-Model\\experiments\\exp_001_initial_run\\evaluation\\evalextra_premium_20251109-2338\\FigureS5_topk_capture.png",
+      "E:/1. Github/1. miRNA-RNA-Deep-Learning-Model\\experiments\\exp_001_initial_run\\evaluation\\evalextra_premium_20251109-2338\\FigureS5_topk_capture.svg",
+      "E:/1. Github/1. miRNA-RNA-Deep-Learning-Model\\experiments\\exp_001_initial_run\\evaluation\\evalextra_premium_20251109-2338\\FigureS5_topk_capture.pdf",
+      "E:/1. Github/1. miRNA-RNA-Deep-Learning-Model\\experiments\\exp_001_initial_run\\evaluation\\evalextra_premium_20251109-2338\\FigureS6_interval_coverage.png",
+      "E:/1. Github/1. miRNA-RNA-Deep-Learning-Model\\experiments\\exp_001_initial_run\\evaluation\\evalextra_premium_20251109-2338\\FigureS6_interval_coverage.svg",
+      "E:/1. Github/1. miRNA-RNA-Deep-Learning-Model\\experiments\\exp_001_initial_run\\evaluation\\evalextra_premium_20251109-2338\\FigureS6_interval_coverage.pdf",
+      "E:/1. Github/1. miRNA-RNA-Deep-Learning-Model\\experiments\\exp_001_initial_run\\evaluation\\evalextra_premium_20251109-2338\\FigureS7_heteroscedasticity_predq.png",
+      "E:/1. Github/1. miRNA-RNA-Deep-Learning-Model\\experiments\\exp_001_initial_run\\evaluation\\evalextra_premium_20251109-2338\\FigureS7_heteroscedasticity_predq.svg",
+      "E:/1. Github/1. miRNA-RNA-Deep-Learning-Model\\experiments\\exp_001_initial_run\\evaluation\\evalextra_premium_20251109-2338\\FigureS7_heteroscedasticity_predq.pdf",
+      "E:/1. Github/1. miRNA-RNA-Deep-Learning-Model\\experiments\\exp_001_initial_run\\evaluation\\evalextra_premium_20251109-2338\\FigureS8_ROC_curve.png",
+      "E:/1. Github/1. miRNA-RNA-Deep-Learning-Model\\experiments\\exp_001_initial_run\\evaluation\\evalextra_premium_20251109-2338\\FigureS8_ROC_curve.svg",
+      "E:/1. Github/1. miRNA-RNA-Deep-Learning-Model\\experiments\\exp_001_initial_run\\evaluation\\evalextra_premium_20251109-2338\\FigureS8_ROC_curve.pdf",
+      "E:/1. Github/1. miRNA-RNA-Deep-Learning-Model\\experiments\\exp_001_initial_run\\evaluation\\evalextra_premium_20251109-2338\\FigureS9_PR_curve.png",
+      "E:/1. Github/1. miRNA-RNA-Deep-Learning-Model\\experiments\\exp_001_initial_run\\evaluation\\evalextra_premium_20251109-2338\\FigureS9_PR_curve.svg",
+      "E:/1. Github/1. miRNA-RNA-Deep-Learning-Model\\experiments\\exp_001_initial_run\\evaluation\\evalextra_premium_20251109-2338\\FigureS9_PR_curve.pdf"
+    ]
+  },
+  "metrics": {
+    "distribution_alignment": {
+      "JS_divergence_base2": 0.06765194724698947,
+      "Wasserstein_distance": 0.018510991079732777,
+      "KS_D": 0.06772500000000004,
+      "KS_pvalue": 3.327754130809111e-80
+    },
+    "tolerance_accuracy": {
+      "AUTA": 0.6466533858055662,
+      "delta_max": 0.10259568691253662,
+      "Acc@5%\u0394max": 0.096975,
+      "Acc@10%\u0394max": 0.19005,
+      "Acc@20%\u0394max": 0.367075,
+      "Acc@50%\u0394max": 0.742075,
+      "Acc@100%\u0394max": 0.950025
+    },
+    "topk_capture": {
+      "true_top_frac": 0.1,
+      "AUCC": 0.8593324163879599,
+      "P@1%": 0.72,
+      "P@5%": 0.522,
+      "P@10%": 0.44925
+    },
+    "interval_coverage": {
+      "mean_abs_calibration_error": 7.631578947364659e-06,
+      "levels": [
+        0.5,
+        0.5257894736842105,
+        0.5515789473684211,
+        0.5773684210526315,
+        0.6031578947368421,
+        0.6289473684210526,
+        0.6547368421052632,
+        0.6805263157894736,
+        0.7063157894736842,
+        0.7321052631578947,
+        0.7578947368421052,
+        0.7836842105263158,
+        0.8094736842105263,
+        0.8352631578947368,
+        0.8610526315789473,
+        0.8868421052631579,
+        0.9126315789473685,
+        0.9384210526315789,
+        0.9642105263157894,
+        0.99
+      ],
+      "observed": [
+        0.5,
+        0.5258,
+        0.551575,
+        0.577375,
+        0.60315,
+        0.62895,
+        0.654725,
+        0.680525,
+        0.7063,
+        0.7321,
+        0.7579,
+        0.783675,
+        0.809475,
+        0.83525,
+        0.86105,
+        0.886825,
+        0.912625,
+        0.9384,
+        0.9642,
+        0.99
+      ]
+    },
+    "heteroscedasticity_profile": {
+      "bins": [
+        {
+          "center": 0.21715138107538223,
+          "count": 2000,
+          "mean_abs_error": 0.02484908327460289,
+          "se": 0.00043158520995759613
+        },
+        {
+          "center": 0.2364112578332424,
+          "count": 2000,
+          "mean_abs_error": 0.024286041036248207,
+          "se": 0.000403132296003615
+        },
+        {
+          "center": 0.24642864987254143,
+          "count": 2000,
+          "mean_abs_error": 0.02415476180613041,
+          "se": 0.0003915417641431265
+        },
+        {
+          "center": 0.254620561003685,
+          "count": 2000,
+          "mean_abs_error": 0.024200644344091415,
+          "se": 0.0004111599192618352
+        },
+        {
+          "center": 0.2614159591495991,
+          "count": 2000,
+          "mean_abs_error": 0.024112209677696228,
+          "se": 0.00039880873323736997
+        },
+        {
+          "center": 0.26712183877825735,
+          "count": 2000,
+          "mean_abs_error": 0.024602847173810005,
+          "se": 0.0004054987663693178
+        },
+        {
+          "center": 0.27276173382997515,
+          "count": 2000,
+          "mean_abs_error": 0.025679290294647217,
+          "se": 0.00042264311904213054
+        },
+        {
+          "center": 0.279187747836113,
+          "count": 2000,
+          "mean_abs_error": 0.02514938823878765,
+          "se": 0.00041803591969609676
+        },
+        {
+          "center": 0.28749188706278805,
+          "count": 2000,
+          "mean_abs_error": 0.026145538315176964,
+          "se": 0.0004124596911774691
+        },
+        {
+          "center": 0.3495431549847126,
+          "count": 2000,
+          "mean_abs_error": 0.02734609693288803,
+          "se": 0.0004743713923436146
+        },
+        {
+          "center": 0.433209814876318,
+          "count": 2000,
+          "mean_abs_error": 0.04581171274185181,
+          "se": 0.0008144543171110505
+        },
+        {
+          "center": 0.4716419197618962,
+          "count": 2000,
+          "mean_abs_error": 0.04710206761956215,
+          "se": 0.0008103711165624208
+        },
+        {
+          "center": 0.4928419709205627,
+          "count": 2000,
+          "mean_abs_error": 0.047770433127880096,
+          "se": 0.0008057737882691639
+        },
+        {
+          "center": 0.5096379697322846,
+          "count": 2000,
+          "mean_abs_error": 0.04761029779911041,
+          "se": 0.0007925513256496032
+        },
+        {
+          "center": 0.5232054710388183,
+          "count": 2000,
+          "mean_abs_error": 0.04980422183871269,
+          "se": 0.0008157241426682602
+        },
+        {
+          "center": 0.5349629133939743,
+          "count": 2000,
+          "mean_abs_error": 0.05091104283928871,
+          "se": 0.0008248683194405739
+        },
+        {
+          "center": 0.5468266665935516,
+          "count": 2000,
+          "mean_abs_error": 0.0522812120616436,
+          "se": 0.0008497317104347999
+        },
+        {
+          "center": 0.5596466571092605,
+          "count": 2000,
+          "mean_abs_error": 0.052560653537511826,
+          "se": 0.0008464233667041423
+        },
+        {
+          "center": 0.574247419834137,
+          "count": 2000,
+          "mean_abs_error": 0.05237393453717232,
+          "se": 0.0008405429681499498
+        },
+        {
+          "center": 0.627270171046257,
+          "count": 2000,
+          "mean_abs_error": 0.053168050944805145,
+          "se": 0.0008839513600609996
+        }
+      ],
+      "spearman_rho_index_vs_mean_abs_error": 0.9593984962406013,
+      "spearman_pvalue": 2.4569761819746815e-11
+    },
+    "roc_curve": {
+      "available": true,
+      "AUC": 0.10047963541666666,
+      "youden_J": 0.6631666666666667,
+      "best_threshold": 0.5139439105987549,
+      "rule": "top 10.0% (threshold=0.58982)",
+      "pos": 4000,
+      "neg": 36000
+    },
+    "pr_curve": {
+      "available": true,
+      "AP": 0.6406674988098273,
+      "best_F1": 0.4890821256038647,
+      "best_threshold": 0.5507608652114868,
+      "rule": "top 10.0% (threshold=0.58982)",
+      "pos": 4000,
+      "neg": 36000
+    }
+  }
+}
