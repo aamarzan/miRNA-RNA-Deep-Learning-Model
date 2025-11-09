@@ -5,6 +5,7 @@ s5_evaluate_pub_v8.py — tiny placement tweaks
 - 3a: stats NW; legend bottom-right
 - 3c: stats NE; font a tad smaller
 """
+
 import os, json, argparse, datetime as dt
 import numpy as np, pandas as pd
 import matplotlib as mpl
