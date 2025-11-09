@@ -223,7 +223,7 @@ def figS3_distribution_alignment(y_true,y_pred,out_dir,stdnames,cmap="magma"):
 
 # ---- Colorbar placed far to the right with reserved figure margin
 # Reserve right margin so the right y-axis label never collides with the colorbar
-    fig.subplots_adjust(right=0.72)   # leaves ~28% of figure width on the right
+    fig.subplots_adjust(right=0.70)   # leaves ~30% of figure width on the right
     pos = ax.get_position()
     cbar_left = 0.80                   # absolute figure fraction for colorbar left
     cbar_w   = 0.022                   # colorbar width
