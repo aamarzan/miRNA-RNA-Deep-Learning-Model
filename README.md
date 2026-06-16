@@ -1,6 +1,6 @@
 <div align="center">
 
-# BioSeq-AffinityPredict: A Hybrid Deep Learning Framework for Predicting Molecular Affinity
+# SeedScope: A MicroRNA–Target Interaction-Prioritization Framework
 
 </div>
 
@@ -11,7 +11,13 @@
   <a href="https://github.com/psf/black"><img src="https://img.shields.io/badge/code%20style-black-000000.svg" alt="Code style: black"></a>
 </p>
 
-A research-grade, hybrid deep learning framework for predicting the binding affinity between molecules (e.g., miRNA-RNA), explicitly modeling the competitive effects of other molecules in the system. This framework features a universal feature engineering pipeline that processes RNA, protein, and 3D structural data, making it a powerful and adaptable tool for discovering novel therapeutic candidates.
+SeedScope is a reproducible research-grade workflow for microRNA–target candidate prioritization. It outputs empirical interaction-strength/prioritization scores from sequence-derived inputs and supports internal held-out evaluation, calibration/agreement diagnostics, configuration-controlled preprocessing, and deployable inference.
+
+The framework is intended for computational triage and hypothesis generation. Scores should not be interpreted as biochemical binding constants, Kd estimates, experimentally validated empirical interaction-strength/prioritization scores, or proof of molecular interaction.
+
+The current implementation supports miRNA inputs, RNA/DNA target inputs, optional competitor sequences, and RNA/protein-relevant input handling through AA-to-NT back-translation and optional PDB/mmCIF context.
+
+
 
 ---
 ### Table of Contents
@@ -40,7 +46,13 @@ This project is built on three core principles:
 
 ## Abstract
 
-The regulation of gene expression by microRNAs (miRNAs) is a fundamental biological process implicated in numerous diseases. Computational prediction of miRNA-target affinity is critical for identifying therapeutic candidates, yet models often oversimplify the complex cellular environment. This project, **BioSeq-AffinityPredict**, introduces a state-of-the-art hybrid **CNN-LSTM-Attention-GNN** architecture to perform a regression task, predicting a continuous binding affinity score. Critically, our framework features a universal molecule processor that automatically handles RNA and protein sequences, performs reverse translation, and integrates 3D structural data (PDB/mmCIF) to generate graph-based features. This allows for a more nuanced, biologically relevant, and accurate prediction of molecular interactions.
+MicroRNAs regulate gene expression through sequence- and context-dependent interactions with target transcripts. Computational models can support candidate prioritization, but their outputs must be interpreted with clear validation boundaries.
+
+SeedScope provides a reproducible microRNA–target interaction-prioritization workflow that integrates sequence-derived features, structure/accessibility-aware feature handling, optional competitor-aware preprocessing, and deep-learning-based scoring. The framework outputs empirical interaction-strength/prioritization scores for candidate ranking rather than direct biochemical affinity constants.
+
+The current workflow includes internal held-out evaluation, calibration/agreement diagnostics, and deployable inference through a web interface. RNA/protein-relevant inputs can be handled through AA-to-NT back-translation and optional PDB/mmCIF context; however, this should not be interpreted as a separately validated RNA–protein binding-affinity model.
+
+The related manuscript is currently submitted and under review at *Interdisciplinary Sciences: Computational Life Sciences*.
 
 
 -----
@@ -116,13 +128,13 @@ spacer0 --> A & B
 
 <div align="justify">
  
-  - **🧠 Hybrid Deep Learning Architecture:** Goes beyond simple CNNs to a "Supreme" model fusing **CNNs** (for motif detection), **LSTMs** (for sequential context), **Attention** (for inter-sequence relationships), and **Graph Neural Networks (GNNs)** (for 3D structural information).
+  - **🧠 Hybrid Deep Learning Architecture:** Goes beyond simple CNNs to a “hybrid sequence-modelling architecture” fusing **CNNs** (for motif detection), **LSTMs** (for sequential context), **Attention** (for inter-sequence relationships), and **Graph Neural Networks (GNNs)** (for 3D structural information).
   - **🔬 Universal Molecule Processor:** A powerful feature engineering engine (`molecule_processors.py`) that:
       - Auto-detects sequence types (RNA vs. Protein).
       - Performs reverse translation for protein sequences using configurable codon usage tables.
       - Integrates experimental 3D structures (PDB/mmCIF) by intelligently matching them to sequences (by ID or sequence similarity).
       - Uses external tools like **ViennaRNA** (`RNAfold`) and **DSSR** to generate 1D and 2D structural features.
-  - **🏆 Explicit Competition Modeling:** Uniquely quantifies the inhibitory effect of a competitor molecule on the primary molecule-target interaction by calculating a "competitive effect" score during prediction.
+  - **🏆 Explicit Competition Modeling:** Estimates the inhibitory effect of a competitor molecule on the primary molecule-target interaction by calculating a "competitive effect" score during prediction.
   - **⚙️ Scalable & Memory-Safe Pipeline:** The entire data preparation workflow is designed to handle massive datasets by processing data in chunks using the efficient Apache Parquet and compressed NPZ formats.
   - **🕹️ Centralized Configuration:** A single, comprehensive `config.json` file acts as the control panel for the entire project—from file paths and `experiment_id` to model hyperparameters and prediction settings.
 </div>
@@ -295,7 +307,7 @@ If you use this project, code, or methodology in your research, please cite both
 
 ```
 
-Al Marzan, A. (2025). BioSeq-AffinityPredict: A Hybrid Deep Learning Framework for Predicting Molecular Affinity. GitHub. [https://github.com/aamarzan/miRNA-RNA-Deep-Learning-Model](https://www.google.com/url?sa=E&source=gmail&q=https://github.com/aamarzan/miRNA-RNA-Deep-Learning-Model)
+Al Marzan, A. (2025). BioSeq-AffinityPredict: A Hybrid Deep Learning Framework for Empirical MicroRNA–Target Interaction Prioritization. GitHub. [https://github.com/aamarzan/miRNA-RNA-Deep-Learning-Model](https://www.google.com/url?sa=E&source=gmail&q=https://github.com/aamarzan/miRNA-RNA-Deep-Learning-Model)
 
 ```
 
@@ -308,7 +320,7 @@ For academic publications, you can use the following BibTeX entry:
 ```bibtex
 @misc{AlMarzan2025BioSeqAffinityPredict,
   author = {Al Marzan, Abdullah},
-  title = {BioSeq-AffinityPredict: A Hybrid Deep Learning Framework for Predicting Molecular Affinity},
+  title = {BioSeq-AffinityPredict: A Hybrid Deep Learning Framework for Empirical MicroRNA–Target Interaction Prioritization},
   year = {2025},
   publisher = {GitHub},
   journal = {GitHub repository},
