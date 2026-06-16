@@ -285,46 +285,43 @@ python "codes/Version 4/s2a_prepare_dl_data.py"
 
 ## Model Limitations & Future Work
 
-The predictive power of this model is fundamentally dependent on the quality and diversity of the input data. The current pseudo-affinity scores generated from experimental evidence databases are a strong proxy, but the model would be further enhanced by training on a large dataset of true, continuous biophysical measurements (e.g., $K\_d$ values from SPR or ITC experiments). Future work will focus on curating such a dataset and exploring more advanced transformer-based architectures for handling even longer sequence contexts.
+SeedScope outputs empirical interaction-strength/prioritization scores derived from available sequence-based evidence and internal model evaluation. These scores should not be interpreted as biochemical binding constants, Kd estimates, experimentally validated binding affinities, or proof of molecular interaction.
+
+Current limitations include: no external validation; no family-held-out, target-held-out, source-held-out, or assay-held-out validation; no wet-lab validation; no complete ablation suite; and no head-to-head benchmark against TargetScan, miRanda, RNAhybrid, or PITA.
+
+Future work will focus on external validation, source-aware and family/target-aware evaluation, systematic ablation studies, benchmark comparisons with established miRNA-target prediction tools, and experimental or independent validation where feasible.
 
 -----
 
 ## Online Prediction Tool
 
-For users who wish to perform predictions without a local setup, we have deployed a user-friendly web interface. This tool provides a quick and accessible way to test candidate miRNAs against specific targets.
+A web interface is available for exploratory candidate prioritization.
 
 🌐 **Access the web tool here: [https://aamarzan.com/mirna](https://aamarzan.com/mirna)**
+
+**Important:** Tool outputs are empirical interaction-strength/prioritization scores for computational ranking. They should not be interpreted as biochemical binding constants, experimentally validated binding affinities, or proof of molecular interaction.
 
 -----
 
 ## Citing this Work
 
-If you use this project, code, or methodology in your research, please cite both our manuscript and this GitHub repository.
-
-*(A full citation to our paper will be provided here upon publication.)*
+If you use this project, code, or methodology in your research, please cite the GitHub repository. A full manuscript citation will be added if/when the related manuscript is published.
 
 ### Citing the Repository
 
-```
-
-Al Marzan, A. (2025). BioSeq-AffinityPredict: A Hybrid Deep Learning Framework for Empirical MicroRNA–Target Interaction Prioritization. GitHub. [https://github.com/aamarzan/miRNA-RNA-Deep-Learning-Model](https://www.google.com/url?sa=E&source=gmail&q=https://github.com/aamarzan/miRNA-RNA-Deep-Learning-Model)
-
-```
-
-For academic publications, you can use the following BibTeX entry:
+Al Marzan, A. (2025). SeedScope: A MicroRNA–Target Interaction-Prioritization Framework. GitHub. https://github.com/aamarzan/miRNA-RNA-Deep-Learning-Model
 
 <details>
 <summary>BibTeX Format</summary>
 
-
 ```bibtex
-@misc{AlMarzan2025BioSeqAffinityPredict,
+@misc{AlMarzan2025SeedScope,
   author = {Al Marzan, Abdullah},
-  title = {BioSeq-AffinityPredict: A Hybrid Deep Learning Framework for Empirical MicroRNA–Target Interaction Prioritization},
+  title = {SeedScope: A MicroRNA--Target Interaction-Prioritization Framework},
   year = {2025},
   publisher = {GitHub},
   journal = {GitHub repository},
-  howpublished = {\url{[https://github.com/aamarzan/miRNA-RNA-Deep-Learning-Model](https://github.com/aamarzan/miRNA-RNA-Deep-Learning-Model)}},
+  howpublished = {\url{https://github.com/aamarzan/miRNA-RNA-Deep-Learning-Model}}
 }
 ```
 </details>
