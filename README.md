@@ -52,7 +52,7 @@ SeedScope provides a reproducible microRNA–target interaction-prioritization w
 
 The current workflow includes internal held-out evaluation, calibration/agreement diagnostics, and deployable inference through a web interface. RNA/protein-relevant inputs can be handled through AA-to-NT back-translation and optional PDB/mmCIF context; however, this should not be interpreted as a separately validated RNA–protein binding-affinity model.
 
-The related manuscript is currently submitted and under review at *Interdisciplinary Sciences: Computational Life Sciences*.
+A related manuscript has been submitted for peer review.
 
 
 -----
